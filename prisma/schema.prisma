@@ -1,0 +1,370 @@
+// KORSALE — Kordinat Satış & Operasyon Yönetim Sistemi
+// Şema kaynak: KORSALE_SPEC.md (Bölüm 7) — v2.0
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ AUTH & USERS ============
+
+enum UserRole {
+  YONETICI
+  SATIS
+  OPERASYON
+  GOZLEMCI
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  role         UserRole @default(SATIS)
+  passwordHash String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Şu an sorumlu olduğu kayıtlar
+  gorusmeSorumlu   Gorusme[]   @relation("GorusmeSorumlu")
+  teklifSorumlu    Teklif[]    @relation("TeklifSorumlu")
+  operasyonSorumlu Operasyon[] @relation("OperasyonSorumlu")
+
+  // Katkı kayıtları (komisyon kavgası önlemi)
+  gorusmeIlkTemas Gorusme[] @relation("GorusmeIlkTemas")
+  teklifKapatan   Teklif[]  @relation("TeklifKapatan")
+
+  // Devir geçmişi
+  devirYapan GorevDevir[] @relation("DevirYapan")
+  devirAlan  GorevDevir[] @relation("DevirAlan")
+
+  notlar      Not[]
+  bildirimler Bildirim[]
+}
+
+// ============ FİRMA & KİŞİ ============
+
+model Firma {
+  id         String   @id @default(cuid())
+  ad         String
+  vergiNo    String?
+  sektor     String?
+  sehir      String?
+  telefon    String?
+  email      String?
+  web        String?
+  marksoftId String?  @unique // MARKSOFT eşleşmesi (v1.5'te aktif)
+  kaynak     String? // "Referans", "Web", "Fuar" vb.
+  notlar     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  kisiler    FirmaKisi[]
+  gorusmeler Gorusme[]
+  teklifler  Teklif[]
+
+  @@index([ad])
+}
+
+model FirmaKisi {
+  id       String  @id @default(cuid())
+  firmaId  String
+  ad       String
+  unvan    String?
+  telefon  String?
+  email    String?
+  birincil Boolean @default(false)
+
+  firma Firma @relation(fields: [firmaId], references: [id], onDelete: Cascade)
+}
+
+// ============ GÖRÜŞME ============
+
+enum GorusmeTipi {
+  YUZ_YUZE
+  TELEFON
+  ONLINE
+  EMAIL
+  DIGER
+}
+
+enum GorusmeSonuc {
+  TEKLIF_ISTENDI
+  BILGI_VERILDI
+  ILGISIZ
+  ERTELENDI
+  REDDEDILDI
+  TEKRAR_ARANACAK
+}
+
+enum GorusmeDurum {
+  ACIK
+  KAPALI
+}
+
+model Gorusme {
+  id           String       @id @default(cuid())
+  firmaId      String
+  sorumluId    String // ŞU AN sorumlu (devir ile değişir)
+  ilkTemasId   String // İLK görüşmeyi yapan (sabit)
+  tarih        DateTime
+  tip          GorusmeTipi
+  yer          String?
+  konu         String
+  ozet         String
+  sonuc        GorusmeSonuc
+  durum        GorusmeDurum @default(ACIK)
+  tahminiTutar Decimal?     @db.Decimal(14, 2) // pipeline için
+  hatirlatma   DateTime?
+  marksoftSync Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  firma     Firma        @relation(fields: [firmaId], references: [id])
+  sorumlu   User         @relation("GorusmeSorumlu", fields: [sorumluId], references: [id])
+  ilkTemas  User         @relation("GorusmeIlkTemas", fields: [ilkTemasId], references: [id])
+  teklifler Teklif[]
+  notlar    Not[]
+  devirler  GorevDevir[]
+
+  @@index([tarih])
+  @@index([firmaId])
+  @@index([sorumluId])
+  @@index([durum])
+}
+
+// ============ TEKLİF / TALİMAT / SÖZLEŞME ============
+
+enum BelgeTipi {
+  TEKLIF
+  TALIMAT
+  SOZLESME
+}
+
+enum BelgeDurum {
+  TASLAK
+  ONAY_BEKLIYOR // indirim onayı bekliyor
+  GONDERILDI
+  BEKLEMEDE
+  KABUL
+  REDDEDILDI
+  IPTAL
+  SURESI_DOLDU
+}
+
+model Teklif {
+  id              String     @id @default(cuid())
+  belgeNo         String     @unique // örn: TKL-2026-0001
+  belgeTipi       BelgeTipi
+  firmaId         String
+  gorusmeId       String?
+  sorumluId       String // ŞU AN sorumlu (devir ile değişir)
+  hazirlayanId    String // Kim hazırladı (sabit)
+  kapatanId       String? // Kim KABUL/RED kararını aldı (sözleşme)
+  baslik          String
+  icerik          String // rich text
+  tutar           Decimal    @db.Decimal(14, 2)
+  paraBirimi      String     @default("TRY")
+  indirimYuzde    Decimal?   @db.Decimal(5, 2)
+  indirimOnayId   String? // onaylayan yönetici user.id
+  indirimOnayTar  DateTime?
+  netTutar        Decimal    @db.Decimal(14, 2)
+  kabulOlasilik   Int        @default(50) // %0-100, pipeline için manuel
+  gecerlilikTarih DateTime?
+  durum           BelgeDurum @default(TASLAK)
+  gonderilmeTar   DateTime?
+  kabulTar        DateTime?
+  redNedeni       String?
+  dosyaUrl        String? // yüklenmiş PDF
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  firma     Firma        @relation(fields: [firmaId], references: [id])
+  gorusme   Gorusme?     @relation(fields: [gorusmeId], references: [id])
+  sorumlu   User         @relation("TeklifSorumlu", fields: [sorumluId], references: [id])
+  kapatan   User?        @relation("TeklifKapatan", fields: [kapatanId], references: [id])
+  operasyon Operasyon?
+  notlar    Not[]
+  devirler  GorevDevir[]
+
+  @@index([durum])
+  @@index([firmaId])
+  @@index([gonderilmeTar])
+  @@index([sorumluId])
+}
+
+// ============ OPERASYON ============
+
+enum OperasyonDurum {
+  BEKLIYOR
+  DEVAM_EDIYOR
+  ASKIDA
+  TAMAMLANDI
+  IPTAL
+}
+
+model Operasyon {
+  id            String         @id @default(cuid())
+  teklifId      String         @unique
+  sorumluId     String // ŞU AN sorumlu (devir ile değişir)
+  baslangicTar  DateTime?
+  bitisTar      DateTime?
+  hedefBitisTar DateTime?
+  durum         OperasyonDurum @default(BEKLIYOR)
+  bekletmeNeden String? // ASKIDA ise neden
+  ilerlemeYuzde Int            @default(0)
+  sonDurum      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  teklif   Teklif           @relation(fields: [teklifId], references: [id])
+  sorumlu  User             @relation("OperasyonSorumlu", fields: [sorumluId], references: [id])
+  asamalar OperasyonAsama[]
+  notlar   Not[]
+  devirler GorevDevir[]
+}
+
+model OperasyonAsama {
+  id          String    @id @default(cuid())
+  operasyonId String
+  baslik      String
+  tamamlandi  Boolean   @default(false)
+  tamamTar    DateTime?
+  sira        Int
+
+  operasyon Operasyon @relation(fields: [operasyonId], references: [id], onDelete: Cascade)
+}
+
+// ============ GÖREV DEVİR ============
+
+enum DevirHedefTipi {
+  GORUSME
+  TEKLIF
+  OPERASYON
+}
+
+enum DevirDurum {
+  BEKLIYOR // devralan henüz cevap vermedi
+  KABUL
+  REDDEDILDI
+  GERI_ALINDI // devreden 1 saat içinde geri aldı
+  ZORLA_DEVIR // Yönetici zorla devretti
+}
+
+model GorevDevir {
+  id          String         @id @default(cuid())
+  hedefTipi   DevirHedefTipi
+  gorusmeId   String?
+  teklifId    String?
+  operasyonId String?
+
+  devredenId String
+  devralanId String
+  devirNotu  String // ZORUNLU, min 50 karakter (API/UI seviyesinde kontrol)
+  durum      DevirDurum @default(BEKLIYOR)
+  cevapTar   DateTime?
+  redNedeni  String?
+  createdAt  DateTime   @default(now())
+
+  devreden  User       @relation("DevirYapan", fields: [devredenId], references: [id])
+  devralan  User       @relation("DevirAlan", fields: [devralanId], references: [id])
+  gorusme   Gorusme?   @relation(fields: [gorusmeId], references: [id], onDelete: Cascade)
+  teklif    Teklif?    @relation(fields: [teklifId], references: [id], onDelete: Cascade)
+  operasyon Operasyon? @relation(fields: [operasyonId], references: [id], onDelete: Cascade)
+
+  @@index([devralanId, durum])
+  @@index([createdAt])
+}
+
+// ============ NOT ============
+
+model Not {
+  id          String   @id @default(cuid())
+  yazanId     String
+  icerik      String
+  gorusmeId   String?
+  teklifId    String?
+  operasyonId String?
+  createdAt   DateTime @default(now())
+
+  yazan     User       @relation(fields: [yazanId], references: [id])
+  gorusme   Gorusme?   @relation(fields: [gorusmeId], references: [id], onDelete: Cascade)
+  teklif    Teklif?    @relation(fields: [teklifId], references: [id], onDelete: Cascade)
+  operasyon Operasyon? @relation(fields: [operasyonId], references: [id], onDelete: Cascade)
+}
+
+// ============ BİLDİRİM ============
+
+enum BildirimTipi {
+  DEVIR_TALEBI
+  DEVIR_KABUL
+  DEVIR_RED
+  TEKLIF_CEVAP_BEKLIYOR
+  TEKLIF_SURESI_DOLUYOR
+  INDIRIM_ONAY_GEREKLI
+  OPERASYON_ASKIDA
+  OPERASYON_GECIKTI
+  HATIRLATMA
+}
+
+model Bildirim {
+  id        String       @id @default(cuid())
+  userId    String
+  tip       BildirimTipi
+  baslik    String
+  icerik    String
+  link      String?
+  okundu    Boolean      @default(false)
+  createdAt DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, okundu])
+}
+
+// ============ DOKÜMANTASYON (KYS taslağı) ============
+
+enum DokumanTipi {
+  SISTEM_TARIF
+  YAZI_BILGI
+  TEKLIF_SABLON
+  LISTE_FORM
+}
+
+model Dokuman {
+  id        String      @id @default(cuid())
+  tip       DokumanTipi
+  baslik    String
+  icerik    String // markdown
+  versiyon  Int         @default(1)
+  aktif     Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+// ============ AYAR ============
+
+model Ayar {
+  anahtar String @id
+  deger   String
+  // örn: { "indirim_onay_yuzde": "15", "firma_adi": "Kordinat", ... }
+}
+
+// ============ AUDIT LOG ============
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  aksiyon   String // CREATE, UPDATE, DELETE, LOGIN, DEVIR, ...
+  entity    String // Teklif, Gorusme, Operasyon, ...
+  entityId  String
+  detay     String? // JSON
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entity, entityId])
+}
