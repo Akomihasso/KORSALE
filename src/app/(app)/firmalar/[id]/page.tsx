@@ -109,12 +109,6 @@ export default async function FirmaDetayPage({ params }: { params: Params }) {
           <FirmaFormDialog mode="edit" firma={firma} />
         </CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-          {firma.vergiNo && (
-            <div>
-              <span className="text-muted-foreground">Vergi/TC no: </span>
-              <span className="font-mono">{firma.vergiNo}</span>
-            </div>
-          )}
           {firma.telefon && (
             <div className="flex items-center gap-2">
               <Phone className="size-4 text-muted-foreground" />

@@ -15,6 +15,13 @@ import {
 } from "@/lib/format";
 import { FirmaArama } from "@/components/firma-arama";
 import { Sayfalama } from "@/components/sayfalama";
+import {
+  ARALIK_ETIKET,
+  ARALIK_LISTE,
+  aralikBaslangic,
+  normalizeAralik,
+  type Aralik,
+} from "@/lib/zaman-araligi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,6 +41,7 @@ const SAYFA_BOYUTU = 20;
 type SearchParams = Promise<{
   durum?: "ACIK" | "KAPALI";
   sonuc?: GorusmeSonuc;
+  aralik?: string;
   q?: string;
   sayfa?: string;
 }>;
@@ -62,12 +70,15 @@ export default async function GorusmelerPage({
   searchParams: SearchParams;
 }) {
   await requireAuth();
-  const { durum, sonuc, q, sayfa: sayfaParam } = await searchParams;
+  const { durum, sonuc, aralik, q, sayfa: sayfaParam } = await searchParams;
   const sayfa = Math.max(1, Number(sayfaParam) || 1);
+  const aktifAralik: Aralik = normalizeAralik(aralik);
+  const tarihBaslangic = aralikBaslangic(aktifAralik);
 
   const where: Prisma.GorusmeWhereInput = {
     ...(durum ? { durum } : {}),
     ...(sonuc ? { sonuc } : {}),
+    ...(tarihBaslangic ? { tarih: { gte: tarihBaslangic } } : {}),
     ...(q
       ? {
           OR: [
@@ -96,6 +107,7 @@ export default async function GorusmelerPage({
       _count: true,
       where: {
         ...(sonuc ? { sonuc } : {}),
+        ...(tarihBaslangic ? { tarih: { gte: tarihBaslangic } } : {}),
         ...(q
           ? {
               OR: [
@@ -113,7 +125,10 @@ export default async function GorusmelerPage({
   const kapaliSayisi = durumSayilari.find((d) => d.durum === "KAPALI")?._count ?? 0;
   const tumSayisi = acikSayisi + kapaliSayisi;
 
-  const aktifDurum: "TUMU" | "ACIK" | "KAPALI" = durum ?? "TUMU";
+  const sayfadakiToplamTahmin = gorusmeler.reduce(
+    (acc, g) => acc + Number(g.tahminiTutar ?? 0),
+    0,
+  );
 
   return (
     <div className="space-y-6">
@@ -121,7 +136,8 @@ export default async function GorusmelerPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Görüşmeler</h1>
           <p className="text-sm text-muted-foreground">
-            Toplam {toplam} görüşme{q ? ` (arama: "${q}")` : ""}
+            {ARALIK_ETIKET[aktifAralik]} · toplam {toplam} görüşme
+            {q ? ` (arama: "${q}")` : ""}
           </p>
         </div>
         <Button render={<Link href="/gorusmeler/yeni" />}>
@@ -130,23 +146,17 @@ export default async function GorusmelerPage({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Tabs value={aktifDurum}>
+        <Tabs value={aktifAralik}>
           <TabsList>
-            <TabsTrigger value="TUMU" render={<Link href={buildHref({ q, sonuc })} />}>
-              Tümü ({tumSayisi})
-            </TabsTrigger>
-            <TabsTrigger
-              value="ACIK"
-              render={<Link href={buildHref({ durum: "ACIK", q, sonuc })} />}
-            >
-              Açık ({acikSayisi})
-            </TabsTrigger>
-            <TabsTrigger
-              value="KAPALI"
-              render={<Link href={buildHref({ durum: "KAPALI", q, sonuc })} />}
-            >
-              Kapalı ({kapaliSayisi})
-            </TabsTrigger>
+            {ARALIK_LISTE.map((a) => (
+              <TabsTrigger
+                key={a}
+                value={a}
+                render={<Link href={buildHref({ durum, sonuc, q, aralik: a })} />}
+              >
+                {ARALIK_ETIKET[a]}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
 
@@ -155,7 +165,28 @@ export default async function GorusmelerPage({
 
       <div className="flex flex-wrap gap-2">
         <Link
-          href={buildHref({ durum, q })}
+          href={buildHref({ sonuc, q, aralik: aktifAralik })}
+          className={`text-xs rounded-md border px-2.5 py-1 transition-colors ${!durum ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
+        >
+          Tüm durumlar ({tumSayisi})
+        </Link>
+        <Link
+          href={buildHref({ sonuc, q, durum: "ACIK", aralik: aktifAralik })}
+          className={`text-xs rounded-md border px-2.5 py-1 transition-colors ${durum === "ACIK" ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
+        >
+          Açık ({acikSayisi})
+        </Link>
+        <Link
+          href={buildHref({ sonuc, q, durum: "KAPALI", aralik: aktifAralik })}
+          className={`text-xs rounded-md border px-2.5 py-1 transition-colors ${durum === "KAPALI" ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
+        >
+          Kapalı ({kapaliSayisi})
+        </Link>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href={buildHref({ durum, q, aralik: aktifAralik })}
           className={`text-xs rounded-full border px-3 py-1 transition-colors ${!sonuc ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
         >
           Tüm sonuçlar
@@ -163,7 +194,7 @@ export default async function GorusmelerPage({
         {GORUSME_SONUC_DEGERLER.map((s) => (
           <Link
             key={s}
-            href={buildHref({ durum, q, sonuc: s })}
+            href={buildHref({ durum, q, sonuc: s, aralik: aktifAralik })}
             className={`text-xs rounded-full border px-3 py-1 transition-colors ${sonuc === s ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
           >
             {GORUSME_SONUC_ETIKET[s]}
@@ -245,6 +276,18 @@ export default async function GorusmelerPage({
               </TableRow>
             ))}
           </TableBody>
+          {gorusmeler.length > 0 && (
+            <tfoot className="border-t bg-muted/30">
+              <tr>
+                <td colSpan={7} className="px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                  Sayfadaki {gorusmeler.length} görüşme · toplam {toplam} kayıt
+                </td>
+                <td className="px-4 py-2.5 text-right text-xs font-semibold">
+                  {trTutar(sayfadakiToplamTahmin)}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </Table>
       </div>
 
@@ -252,7 +295,7 @@ export default async function GorusmelerPage({
         toplam={toplam}
         sayfa={sayfa}
         sayfaBoyutu={SAYFA_BOYUTU}
-        baseHref={buildHref({ durum, sonuc, q })}
+        baseHref={buildHref({ durum, sonuc, q, aralik: aktifAralik })}
       />
     </div>
   );

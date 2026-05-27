@@ -1,26 +1,43 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Menu, Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
+import type { BildirimTipi } from "@prisma/client";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { BildirimPopover } from "@/components/bildirim-popover";
 import { UserMenu } from "@/components/user-menu";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
+type BildirimItem = {
+  id: string;
+  tip: BildirimTipi;
+  baslik: string;
+  icerik: string;
+  link: string | null;
+  okundu: boolean;
+  createdAt: Date | string;
+};
+
 type Props = {
   user: { name: string; email: string; rolEtiketi: string };
   bildirimSayisi: number;
+  bildirimler: BildirimItem[];
   devirBekleyenSayisi: number;
 };
 
-export function AppTopbar({ user, bildirimSayisi, devirBekleyenSayisi }: Props) {
+export function AppTopbar({
+  user,
+  bildirimSayisi,
+  bildirimler,
+  devirBekleyenSayisi,
+}: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background px-4">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-card px-4">
       {/* Mobile drawer trigger */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetTrigger
@@ -50,18 +67,7 @@ export function AppTopbar({ user, bildirimSayisi, devirBekleyenSayisi }: Props) 
       </div>
 
       <div className="ml-auto flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="size-5" />
-          {bildirimSayisi > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-0.5 -right-0.5 h-4 min-w-4 justify-center px-1 text-[10px]"
-            >
-              {bildirimSayisi > 9 ? "9+" : bildirimSayisi}
-            </Badge>
-          )}
-          <span className="sr-only">Bildirimler</span>
-        </Button>
+        <BildirimPopover bildirimler={bildirimler} okunmamis={bildirimSayisi} />
 
         <UserMenu name={user.name} email={user.email} rolEtiketi={user.rolEtiketi} />
       </div>

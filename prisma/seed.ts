@@ -9,11 +9,11 @@ async function main() {
   const passHash = await bcrypt.hash("KorsaleDev2026!", 12);
 
   const yonetici = await prisma.user.upsert({
-    where: { email: "yonetici@kordinat.com" },
+    where: { email: "dunyada.sonyediyil@kordinat.com.tr" },
     update: {},
     create: {
-      email: "yonetici@kordinat.com",
-      name: "Yönetici Test",
+      email: "dunyada.sonyediyil@kordinat.com.tr",
+      name: "Yönetici",
       role: UserRole.YONETICI,
       passwordHash: passHash,
     },
@@ -115,6 +115,26 @@ async function main() {
     },
   });
 
+  // Funnel demoluğu için: ikinci firma için bir görüşme + onaylanmış teklif
+  const mevcutGorusme2 = await prisma.gorusme.findFirst({
+    where: { firmaId: firma2.id, konu: "Logo tasarımı için marka koruma" },
+  });
+  if (!mevcutGorusme2) {
+    await prisma.gorusme.create({
+      data: {
+        firmaId: firma2.id,
+        sorumluId: satis1.id,
+        ilkTemasId: satis1.id,
+        tarih: new Date(),
+        tip: GorusmeTipi.ONLINE,
+        konu: "Logo tasarımı için marka koruma",
+        ozet: "Yeni logoyu marka olarak tescil ettirmek istiyorlar.",
+        sonuc: GorusmeSonuc.TEKLIF_ISTENDI,
+        tahminiTutar: 22000,
+      },
+    });
+  }
+
   // Bir örnek görüşme
   const mevcutGorusme = await prisma.gorusme.findFirst({
     where: { firmaId: firma1.id, konu: "Marka tescil başvurusu" },
@@ -156,7 +176,7 @@ async function main() {
   console.log("✅ Seed tamamlandı");
   console.log("");
   console.log("Giriş bilgileri (şifre tüm hesaplar için aynı):");
-  console.log("  Yönetici:   yonetici@kordinat.com");
+  console.log("  Yönetici:   dunyada.sonyediyil@kordinat.com.tr");
   console.log("  Satış 1:    satis1@kordinat.com");
   console.log("  Satış 2:    satis2@kordinat.com");
   console.log("  Operasyon:  operasyon@kordinat.com");

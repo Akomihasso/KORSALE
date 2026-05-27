@@ -13,7 +13,7 @@ import {
   User,
 } from "lucide-react";
 
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireAuth, ROL_ETIKETLERI } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import {
   GORUSME_DURUM_ETIKET,
@@ -26,9 +26,11 @@ import {
   trTutar,
 } from "@/lib/format";
 import { gorusmeDurumDegistirAction } from "@/lib/actions/gorusme-actions";
+import { DevirDialog } from "@/components/devir-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { UserRole } from "@prisma/client";
 import {
   Card,
   CardContent,
@@ -50,7 +52,7 @@ export async function generateMetadata({ params }: { params: Params }) {
 }
 
 export default async function GorusmeDetayPage({ params }: { params: Params }) {
-  await requireAuth();
+  const user = await requireAuth();
   const { id } = await params;
 
   const gorusme = await prisma.gorusme.findUnique({
@@ -77,6 +79,24 @@ export default async function GorusmeDetayPage({ params }: { params: Params }) {
   const birincilKisi = gorusme.firma.kisiler[0];
   const yeniDurum: "ACIK" | "KAPALI" =
     gorusme.durum === "ACIK" ? "KAPALI" : "ACIK";
+
+  const sahip = gorusme.sorumluId === user.id;
+  const yonetici = user.role === UserRole.YONETICI;
+  const devredebilir =
+    user.role !== UserRole.GOZLEMCI && (sahip || yonetici);
+
+  const kullanicilar = devredebilir
+    ? await prisma.user.findMany({
+        where: { isActive: true, role: { not: UserRole.GOZLEMCI } },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, role: true },
+      })
+    : [];
+  const kullaniciOps = kullanicilar.map((k) => ({
+    id: k.id,
+    name: k.name,
+    rolEtiketi: ROL_ETIKETLERI[k.role],
+  }));
 
   return (
     <div className="space-y-6">
@@ -215,14 +235,17 @@ export default async function GorusmeDetayPage({ params }: { params: Params }) {
                 </div>
               )}
 
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled
-                title="Sprint 3'te aktif"
-              >
-                Devret (Sprint 3)
-              </Button>
+              {devredebilir && (
+                <DevirDialog
+                  hedefTipi="GORUSME"
+                  hedefId={gorusme.id}
+                  hedefBaslik={gorusme.konu}
+                  mevcutSorumluId={gorusme.sorumlu.id}
+                  kullanicilar={kullaniciOps}
+                  zorlaDevir={yonetici && !sahip}
+                  triggerLabel={yonetici && !sahip ? "Zorla devret" : "Devret"}
+                />
+              )}
             </CardContent>
           </Card>
         </div>

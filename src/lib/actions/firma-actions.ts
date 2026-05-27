@@ -9,24 +9,8 @@ import { requireAuth, requireRole } from "@/lib/auth-helpers";
 import { UserRole } from "@prisma/client";
 import { parseFormData, type ActionState } from "./_shared";
 
-// "Referans", "Web", "Fuar", "Soğuk arama", "Diğer" gibi serbest metin de olabilir
-const KAYNAK_OPSIYONLAR = [
-  "Referans",
-  "Web",
-  "Fuar",
-  "Soğuk arama",
-  "Sosyal medya",
-  "Diğer",
-] as const;
-
-export const KAYNAKLAR = KAYNAK_OPSIYONLAR;
-
 const firmaCreateSchema = z.object({
   ad: z.string().min(2, "Firma adı en az 2 karakter olmalı").max(160),
-  vergiNo: z
-    .string()
-    .regex(/^\d{10,11}$/, "Vergi/TC no 10 veya 11 haneli rakam olmalı")
-    .optional(),
   sektor: z.string().max(80).optional(),
   sehir: z.string().max(60).optional(),
   telefon: z.string().max(40).optional(),
@@ -36,18 +20,19 @@ const firmaCreateSchema = z.object({
   notlar: z.string().max(2000).optional(),
 });
 
+const firmaHizliSchema = z.object({
+  ad: z.string().min(2, "Firma adı en az 2 karakter olmalı").max(160),
+  sektor: z.string().max(80).optional(),
+  sehir: z.string().max(60).optional(),
+});
+
+export type FirmaHizliState = ActionState & {
+  firma?: { id: string; ad: string; sektor: string | null; sehir: string | null };
+};
+
 const firmaUpdateSchema = firmaCreateSchema.extend({
   id: z.string().cuid(),
 });
-
-async function vergiNoTekrarVarMi(vergiNo: string | undefined, excludeId?: string) {
-  if (!vergiNo) return false;
-  const mevcut = await prisma.firma.findFirst({
-    where: { vergiNo, ...(excludeId ? { NOT: { id: excludeId } } : {}) },
-    select: { id: true },
-  });
-  return !!mevcut;
-}
 
 export async function firmaOlusturAction(
   _prev: ActionState,
@@ -57,18 +42,9 @@ export async function firmaOlusturAction(
   const { data, state } = parseFormData(firmaCreateSchema, formData);
   if (state) return state;
 
-  if (await vergiNoTekrarVarMi(data!.vergiNo)) {
-    return {
-      ok: false,
-      error: "Bu vergi/TC no zaten kayıtlı",
-      fieldErrors: { vergiNo: "Aynı no ile başka firma var" },
-    };
-  }
-
   const yeni = await prisma.firma.create({
     data: {
       ad: data!.ad.trim(),
-      vergiNo: data!.vergiNo,
       sektor: data!.sektor,
       sehir: data!.sehir,
       telefon: data!.telefon,
@@ -92,19 +68,10 @@ export async function firmaGuncelleAction(
   const { data, state } = parseFormData(firmaUpdateSchema, formData);
   if (state) return state;
 
-  if (await vergiNoTekrarVarMi(data!.vergiNo, data!.id)) {
-    return {
-      ok: false,
-      error: "Bu vergi/TC no başka firmada zaten kayıtlı",
-      fieldErrors: { vergiNo: "Aynı no ile başka firma var" },
-    };
-  }
-
   await prisma.firma.update({
     where: { id: data!.id },
     data: {
       ad: data!.ad.trim(),
-      vergiNo: data!.vergiNo,
       sektor: data!.sektor,
       sehir: data!.sehir,
       telefon: data!.telefon,
@@ -118,6 +85,31 @@ export async function firmaGuncelleAction(
   revalidatePath("/firmalar");
   revalidatePath(`/firmalar/${data!.id}`);
   return { ok: true };
+}
+
+/**
+ * Görüşme/teklif formundan inline firma oluşturma — sadece ad zorunlu, redirect yok.
+ * Yeni firma bilgisini state üzerinden döndürür.
+ */
+export async function firmaHizliOlusturAction(
+  _prev: FirmaHizliState,
+  formData: FormData,
+): Promise<FirmaHizliState> {
+  await requireAuth();
+  const { data, state } = parseFormData(firmaHizliSchema, formData);
+  if (state) return state;
+
+  const yeni = await prisma.firma.create({
+    data: {
+      ad: data!.ad.trim(),
+      sektor: data!.sektor,
+      sehir: data!.sehir,
+    },
+    select: { id: true, ad: true, sektor: true, sehir: true },
+  });
+
+  revalidatePath("/firmalar");
+  return { ok: true, firma: yeni };
 }
 
 export async function firmaSilAction(formData: FormData) {

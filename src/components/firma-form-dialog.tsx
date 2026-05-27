@@ -7,8 +7,8 @@ import { toast } from "sonner";
 import {
   firmaOlusturAction,
   firmaGuncelleAction,
-  KAYNAKLAR,
 } from "@/lib/actions/firma-actions";
+import { KAYNAKLAR } from "@/lib/firma-constants";
 import type { ActionState } from "@/lib/actions/_shared";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +36,6 @@ const initialState: ActionState = { ok: false };
 type Firma = {
   id: string;
   ad: string;
-  vergiNo: string | null;
   sektor: string | null;
   sehir: string | null;
   telefon: string | null;
@@ -119,20 +118,6 @@ export function FirmaFormDialog(props: Props) {
             />
             {state.fieldErrors?.ad && (
               <p className="text-xs text-destructive">{state.fieldErrors.ad}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="vergiNo">Vergi / TC no</Label>
-            <Input
-              id="vergiNo"
-              name="vergiNo"
-              defaultValue={f?.vergiNo ?? ""}
-              inputMode="numeric"
-              placeholder="10 veya 11 hane"
-            />
-            {state.fieldErrors?.vergiNo && (
-              <p className="text-xs text-destructive">{state.fieldErrors.vergiNo}</p>
             )}
           </div>
 

@@ -8,6 +8,8 @@ import type {
   GorusmeSonuc,
   GorusmeTipi,
   OperasyonDurum,
+  OperasyonKategori,
+  TeklifRedKategori,
 } from "@prisma/client";
 
 // ============ TARİH ============
@@ -61,6 +63,13 @@ export function trAdet(v: number) {
   return trSayi.format(v);
 }
 
+export function trYuzde(v: number | string | { toString(): string } | null | undefined) {
+  if (v === null || v === undefined) return "—";
+  const num = typeof v === "number" ? v : Number(v.toString());
+  if (!Number.isFinite(num)) return "—";
+  return `%${num.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}`;
+}
+
 // ============ ENUM ETİKETLERİ ============
 
 export const GORUSME_TIPI_ETIKET: Record<GorusmeTipi, string> = {
@@ -102,12 +111,139 @@ export const BELGE_DURUM_ETIKET: Record<BelgeDurum, string> = {
   SURESI_DOLDU: "Süresi doldu",
 };
 
+export const TEKLIF_RED_KATEGORI_ETIKET: Record<TeklifRedKategori, string> = {
+  USTMAKAM_ONAY: "Üst makam onayı bekliyor",
+  DUSUNUYOR: "Düşünüyor",
+  PARA_BEKLIYOR: "Bütçe / ödeme bekliyor",
+  FIYAT_YUKSEK: "Fiyatımız yüksek bulundu",
+  BASKA_FIRMA: "Başka firmayı tercih etti",
+  ULASILAMIYOR: "Ulaşılamıyor",
+  DIGER: "Diğer",
+};
+
+/**
+ * Müşteri akışındaki gerçek aşamayı — enum'a göre değil, durum + odemeAlindiTar +
+ * operasyon kombinasyonuna göre — özetler. Liste sütunu ve detay sayfasındaki tek
+ * rozet için kaynak budur.
+ */
+export type TeklifAsama =
+  | "HAZIRLANIYOR"
+  | "INDIRIM_ONAY"
+  | "TEKLIF_BEKLIYOR"
+  | "ONAYLANDI"
+  | "PARA_ALINDI"
+  | "OPERASYONDA"
+  | "TAMAMLANDI"
+  | "REDDEDILDI"
+  | "IPTAL"
+  | "SURESI_DOLDU";
+
+export const TEKLIF_ASAMA_ETIKET: Record<TeklifAsama, string> = {
+  HAZIRLANIYOR: "Hazırlanıyor",
+  INDIRIM_ONAY: "İndirim onayı bekliyor",
+  TEKLIF_BEKLIYOR: "Teklif bekliyor",
+  ONAYLANDI: "Onaylandı · ödeme bekliyor",
+  PARA_ALINDI: "Para alındı · operasyona aktarıldı",
+  OPERASYONDA: "Operasyonda",
+  TAMAMLANDI: "Tamamlandı",
+  REDDEDILDI: "Reddedildi",
+  IPTAL: "İptal",
+  SURESI_DOLDU: "Süresi doldu",
+};
+
+/**
+ * Detay/liste için tek noktadan üretilen "müşteri akışı aşaması".
+ * Operasyon durumu da bilinerek çağrılırsa OPERASYONDA / TAMAMLANDI ayırt edilir.
+ */
+export function teklifAsamasi(input: {
+  durum: BelgeDurum;
+  odemeAlindiTar: Date | string | null;
+  operasyonDurum?: OperasyonDurum | null;
+}): TeklifAsama {
+  switch (input.durum) {
+    case "TASLAK":
+      return "HAZIRLANIYOR";
+    case "ONAY_BEKLIYOR":
+      return "INDIRIM_ONAY";
+    case "GONDERILDI":
+    case "BEKLEMEDE":
+      return "TEKLIF_BEKLIYOR";
+    case "KABUL": {
+      if (!input.odemeAlindiTar) return "ONAYLANDI";
+      if (input.operasyonDurum === "TAMAMLANDI") return "TAMAMLANDI";
+      if (
+        input.operasyonDurum === "DEVAM_EDIYOR" ||
+        input.operasyonDurum === "ASKIDA"
+      ) {
+        return "OPERASYONDA";
+      }
+      return "PARA_ALINDI";
+    }
+    case "REDDEDILDI":
+      return "REDDEDILDI";
+    case "IPTAL":
+      return "IPTAL";
+    case "SURESI_DOLDU":
+      return "SURESI_DOLDU";
+  }
+}
+
+// Tailwind sınıfları (renk + arka plan) — tek nokta.
+export const TEKLIF_DURUM_GORUNUM: Record<
+  TeklifAsama,
+  { sinif: string; rozet: "default" | "secondary" | "destructive" | "outline" }
+> = {
+  HAZIRLANIYOR: { sinif: "text-muted-foreground", rozet: "outline" },
+  INDIRIM_ONAY: {
+    sinif: "text-amber-600 dark:text-amber-400",
+    rozet: "secondary",
+  },
+  TEKLIF_BEKLIYOR: {
+    sinif: "text-sky-600 dark:text-sky-400",
+    rozet: "secondary",
+  },
+  ONAYLANDI: {
+    sinif: "text-amber-600 dark:text-amber-400",
+    rozet: "default",
+  },
+  PARA_ALINDI: {
+    sinif: "text-emerald-600 dark:text-emerald-400",
+    rozet: "default",
+  },
+  OPERASYONDA: {
+    sinif: "text-emerald-600 dark:text-emerald-400",
+    rozet: "default",
+  },
+  TAMAMLANDI: {
+    sinif: "text-emerald-700 dark:text-emerald-300",
+    rozet: "default",
+  },
+  REDDEDILDI: {
+    sinif: "text-destructive",
+    rozet: "destructive",
+  },
+  IPTAL: { sinif: "text-muted-foreground", rozet: "destructive" },
+  SURESI_DOLDU: { sinif: "text-muted-foreground", rozet: "destructive" },
+};
+
+export function teklifAsamaRengi(a: TeklifAsama) {
+  return TEKLIF_DURUM_GORUNUM[a].rozet;
+}
+
 export const OPERASYON_DURUM_ETIKET: Record<OperasyonDurum, string> = {
   BEKLIYOR: "Bekliyor",
   DEVAM_EDIYOR: "Devam ediyor",
   ASKIDA: "Askıda",
   TAMAMLANDI: "Tamamlandı",
   IPTAL: "İptal",
+};
+
+export const OPERASYON_KATEGORI_ETIKET: Record<OperasyonKategori, string> = {
+  MARKA: "Marka",
+  PATENT: "Patent",
+  TASARIM: "Tasarım",
+  DANISMANLIK: "Danışmanlık",
+  DIGER: "Diğer",
 };
 
 export const DEVIR_DURUM_ETIKET: Record<DevirDurum, string> = {
@@ -139,6 +275,75 @@ export function gorusmeSonucRengi(
     case "ERTELENDI":
       return "outline";
   }
+}
+
+export function belgeDurumRengi(
+  d: BelgeDurum,
+): "default" | "secondary" | "destructive" | "outline" {
+  switch (d) {
+    case "TASLAK":
+      return "outline";
+    case "ONAY_BEKLIYOR":
+    case "GONDERILDI":
+    case "BEKLEMEDE":
+      return "secondary";
+    case "KABUL":
+      return "default";
+    case "REDDEDILDI":
+    case "IPTAL":
+    case "SURESI_DOLDU":
+      return "destructive";
+  }
+}
+
+export function belgeTipiRengi(t: BelgeTipi): "default" | "secondary" | "outline" {
+  switch (t) {
+    case "TEKLIF":
+      return "default";
+    case "SOZLESME":
+      return "secondary";
+    case "TALIMAT":
+      return "outline";
+  }
+}
+
+export function devirDurumRengi(
+  d: DevirDurum,
+): "default" | "secondary" | "destructive" | "outline" {
+  switch (d) {
+    case "BEKLIYOR":
+      return "secondary";
+    case "KABUL":
+    case "ZORLA_DEVIR":
+      return "default";
+    case "REDDEDILDI":
+    case "GERI_ALINDI":
+      return "destructive";
+  }
+}
+
+export function operasyonDurumRengi(
+  d: OperasyonDurum,
+): "default" | "secondary" | "destructive" | "outline" {
+  switch (d) {
+    case "BEKLIYOR":
+      return "outline";
+    case "DEVAM_EDIYOR":
+      return "default";
+    case "ASKIDA":
+      return "secondary";
+    case "TAMAMLANDI":
+      return "default";
+    case "IPTAL":
+      return "destructive";
+  }
+}
+
+export function kabulOlasilikRengi(yuzde: number): string {
+  if (yuzde >= 75) return "text-emerald-600 dark:text-emerald-400";
+  if (yuzde >= 50) return "text-amber-600 dark:text-amber-400";
+  if (yuzde >= 25) return "text-orange-600 dark:text-orange-400";
+  return "text-muted-foreground";
 }
 
 // ============ İSİM KISALTMA ============

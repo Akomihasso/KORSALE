@@ -37,6 +37,7 @@ model User {
   // Katkı kayıtları (komisyon kavgası önlemi)
   gorusmeIlkTemas Gorusme[] @relation("GorusmeIlkTemas")
   teklifKapatan   Teklif[]  @relation("TeklifKapatan")
+  teklifOdemeAlan Teklif[]  @relation("TeklifOdemeAlan")
 
   // Devir geçmişi
   devirYapan GorevDevir[] @relation("DevirYapan")
@@ -51,7 +52,6 @@ model User {
 model Firma {
   id         String   @id @default(cuid())
   ad         String
-  vergiNo    String?
   sektor     String?
   sehir      String?
   telefon    String?
@@ -156,6 +156,17 @@ enum BelgeDurum {
   SURESI_DOLDU
 }
 
+// Red gerekçesi kategorileri — REDDEDILDI durumunda doldurulur.
+enum TeklifRedKategori {
+  USTMAKAM_ONAY
+  DUSUNUYOR
+  PARA_BEKLIYOR
+  FIYAT_YUKSEK
+  BASKA_FIRMA
+  ULASILAMIYOR
+  DIGER
+}
+
 model Teklif {
   id              String     @id @default(cuid())
   belgeNo         String     @unique // örn: TKL-2026-0001
@@ -178,8 +189,11 @@ model Teklif {
   durum           BelgeDurum @default(TASLAK)
   gonderilmeTar   DateTime?
   kabulTar        DateTime?
+  // Müşteri kabul ettikten sonra ödeme tahsil edildiğinde dolar
+  odemeAlindiTar  DateTime?
+  odemeAlanId     String? // ödemeyi kim teyit etti
   redNedeni       String?
-  dosyaUrl        String? // yüklenmiş PDF
+  redKategorisi   TeklifRedKategori?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
@@ -187,6 +201,7 @@ model Teklif {
   gorusme   Gorusme?     @relation(fields: [gorusmeId], references: [id])
   sorumlu   User         @relation("TeklifSorumlu", fields: [sorumluId], references: [id])
   kapatan   User?        @relation("TeklifKapatan", fields: [kapatanId], references: [id])
+  odemeAlan User?        @relation("TeklifOdemeAlan", fields: [odemeAlanId], references: [id])
   operasyon Operasyon?
   notlar    Not[]
   devirler  GorevDevir[]
@@ -207,25 +222,37 @@ enum OperasyonDurum {
   IPTAL
 }
 
+enum OperasyonKategori {
+  MARKA
+  PATENT
+  TASARIM
+  DANISMANLIK
+  DIGER
+}
+
 model Operasyon {
-  id            String         @id @default(cuid())
-  teklifId      String         @unique
+  id            String            @id @default(cuid())
+  teklifId      String            @unique
   sorumluId     String // ŞU AN sorumlu (devir ile değişir)
+  kategori      OperasyonKategori @default(DIGER)
   baslangicTar  DateTime?
   bitisTar      DateTime?
   hedefBitisTar DateTime?
-  durum         OperasyonDurum @default(BEKLIYOR)
+  durum         OperasyonDurum    @default(BEKLIYOR)
   bekletmeNeden String? // ASKIDA ise neden
-  ilerlemeYuzde Int            @default(0)
+  ilerlemeYuzde Int               @default(0)
   sonDurum      String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   teklif   Teklif           @relation(fields: [teklifId], references: [id])
   sorumlu  User             @relation("OperasyonSorumlu", fields: [sorumluId], references: [id])
   asamalar OperasyonAsama[]
   notlar   Not[]
   devirler GorevDevir[]
+
+  @@index([kategori])
+  @@index([durum])
 }
 
 model OperasyonAsama {
