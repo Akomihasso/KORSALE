@@ -295,7 +295,7 @@ export function TeklifForm({
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Net tutar:</span>
             <span className="text-lg font-semibold">
-              {trTutar(netTutar)} {paraBirimi !== "TRY" && paraBirimi}
+              {trTutar(netTutar, paraBirimi)}
             </span>
           </div>
           {netTutarTl !== null && (

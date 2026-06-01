@@ -337,7 +337,7 @@ export default async function TekliflerPage({
                   {t.sorumlu.name}
                 </TableCell>
                 <TableCell className="text-right text-xs font-medium">
-                  {trTutar(t.netTutar)}
+                  {trTutar(t.netTutar, t.paraBirimi)}
                 </TableCell>
                 <TableCell
                   className={`text-right text-xs font-medium ${kabulOlasilikRengi(t.kabulOlasilik)}`}

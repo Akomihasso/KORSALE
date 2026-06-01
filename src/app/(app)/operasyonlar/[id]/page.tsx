@@ -177,7 +177,7 @@ export default async function OperasyonDetayPage({ params }: { params: Params })
                 <div>
                   <p className="text-xs text-muted-foreground">Tutar</p>
                   <p className="text-base font-semibold">
-                    {trTutar(operasyon.teklif.netTutar)}
+                    {trTutar(operasyon.teklif.netTutar, operasyon.teklif.paraBirimi)}
                   </p>
                 </div>
                 {operasyon.teklif.kabulTar && (

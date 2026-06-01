@@ -184,6 +184,7 @@ export default async function GenelDurumPage({
         belgeNo: true,
         baslik: true,
         netTutar: true,
+        paraBirimi: true,
         kabulTar: true,
         firma: { select: { ad: true } },
         sorumlu: { select: { name: true } },
@@ -511,7 +512,7 @@ export default async function GenelDurumPage({
                         <BekleyenSatir
                           key={t.id}
                           baslik={`${t.belgeNo} — ${t.baslik}`}
-                          altYazi={`${t.firma.ad} · ${t.sorumlu.name} · ${trTutar(t.netTutar)}${t.kabulTar ? ` · kabul ${trGoreceli(t.kabulTar)}` : ""}`}
+                          altYazi={`${t.firma.ad} · ${t.sorumlu.name} · ${trTutar(t.netTutar, t.paraBirimi)}${t.kabulTar ? ` · kabul ${trGoreceli(t.kabulTar)}` : ""}`}
                           href={`/teklifler/${t.id}`}
                         />
                       ))}

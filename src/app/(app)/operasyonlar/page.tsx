@@ -317,7 +317,7 @@ export default async function OperasyonlarPage({
                   {o.sorumlu.name}
                 </TableCell>
                 <TableCell className="text-right text-xs font-medium">
-                  {trTutar(o.teklif.netTutar)}
+                  {trTutar(o.teklif.netTutar, o.teklif.paraBirimi)}
                 </TableCell>
                 <TableCell className="text-right text-xs text-muted-foreground">
                   {o.hedefBitisTar ? trTarih(o.hedefBitisTar) : "—"}

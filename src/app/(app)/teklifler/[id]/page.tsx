@@ -250,7 +250,9 @@ export default async function TeklifDetayPage({ params }: { params: Params }) {
               <div className="grid gap-3 text-sm sm:grid-cols-3">
                 <div>
                   <p className="text-xs text-muted-foreground">Tutar</p>
-                  <p className="text-base font-medium">{trTutar(teklif.tutar)}</p>
+                  <p className="text-base font-medium">
+                    {trTutar(teklif.tutar, teklif.paraBirimi)}
+                  </p>
                 </div>
                 {teklif.indirimYuzde && (
                   <div>
@@ -270,7 +272,9 @@ export default async function TeklifDetayPage({ params }: { params: Params }) {
                 )}
                 <div>
                   <p className="text-xs text-muted-foreground">Net Tutar</p>
-                  <p className="text-base font-semibold">{trTutar(teklif.netTutar)}</p>
+                  <p className="text-base font-semibold">
+                    {trTutar(teklif.netTutar, teklif.paraBirimi)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Kabul olasılığı</p>

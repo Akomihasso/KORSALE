@@ -44,18 +44,33 @@ export function datetimeLocalInputDegeri(d: Date | string) {
 
 // ============ PARA ============
 
-const trPara = new Intl.NumberFormat("tr-TR", {
-  style: "currency",
-  currency: "TRY",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
+const DESTEKLENEN_PARA_BIRIMLERI = new Set(["TRY", "USD", "EUR", "GBP"]);
 
-export function trTutar(v: number | string | { toString(): string } | null | undefined) {
+const formatterCache = new Map<string, Intl.NumberFormat>();
+function paraFormatter(paraBirimi: string) {
+  const kod = paraBirimi.toUpperCase();
+  const guvenliKod = DESTEKLENEN_PARA_BIRIMLERI.has(kod) ? kod : "TRY";
+  let fmt = formatterCache.get(guvenliKod);
+  if (!fmt) {
+    fmt = new Intl.NumberFormat("tr-TR", {
+      style: "currency",
+      currency: guvenliKod,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+    formatterCache.set(guvenliKod, fmt);
+  }
+  return fmt;
+}
+
+export function trTutar(
+  v: number | string | { toString(): string } | null | undefined,
+  paraBirimi: string = "TRY",
+) {
   if (v === null || v === undefined) return "—";
   const num = typeof v === "number" ? v : Number(v.toString());
   if (!Number.isFinite(num)) return "—";
-  return trPara.format(num);
+  return paraFormatter(paraBirimi).format(num);
 }
 
 const trSayi = new Intl.NumberFormat("tr-TR");
