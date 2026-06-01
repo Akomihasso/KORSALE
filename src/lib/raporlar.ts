@@ -10,6 +10,20 @@ import {
   OPERASYON_KATEGORI_ETIKET,
 } from "@/lib/format";
 
+// Türkiye sabit UTC+3 (yaz saati uygulaması yok). Vercel UTC çalıştığı için
+// "01.06.2026 günü TR saatinde" = UTC 31.05.2026 21:00 — 01.06.2026 20:59:59.999.
+const TR_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+export function trGunBasi(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d) - TR_OFFSET_MS);
+}
+
+export function trGunSonu(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - TR_OFFSET_MS);
+}
+
 export type RaporTipi = "gorusme" | "teklif" | "operasyon" | "ekip";
 
 export const RAPOR_BASLIK: Record<RaporTipi, string> = {

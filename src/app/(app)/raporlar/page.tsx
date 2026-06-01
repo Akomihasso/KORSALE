@@ -2,7 +2,13 @@ import Link from "next/link";
 import { FileSpreadsheet, FileText, Filter } from "lucide-react";
 
 import { requireAuth } from "@/lib/auth-helpers";
-import { RAPOR_BASLIK, raporUret, type RaporTipi } from "@/lib/raporlar";
+import {
+  RAPOR_BASLIK,
+  raporUret,
+  trGunBasi,
+  trGunSonu,
+  type RaporTipi,
+} from "@/lib/raporlar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,21 +36,30 @@ type SearchParams = Promise<{
   bitis?: string;
 }>;
 
+// trGunBasi / trGunSonu @/lib/raporlar'dan geliyor (paylaşımlı)
+const TR_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+function trBugunYmd(): { y: number; m: number; d: number } {
+  const tr = new Date(Date.now() + TR_OFFSET_MS);
+  return { y: tr.getUTCFullYear(), m: tr.getUTCMonth(), d: tr.getUTCDate() };
+}
+
 function tarihGirisiDegeri(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  // Date input için yyyy-MM-dd — TR saatine göre
+  const tr = new Date(d.getTime() + TR_OFFSET_MS);
+  return tr.toISOString().slice(0, 10);
 }
 
 function baslangicVarsayilan(): Date {
-  const d = new Date();
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  // Bu ayın 1'i, TR saatinde başlangıç
+  const { y, m } = trBugunYmd();
+  return new Date(Date.UTC(y, m, 1) - TR_OFFSET_MS);
 }
 
 function bitisVarsayilan(): Date {
-  const d = new Date();
-  d.setHours(23, 59, 59, 999);
-  return d;
+  // Bugünün sonu, TR saatinde
+  const { y, m, d } = trBugunYmd();
+  return new Date(Date.UTC(y, m, d, 23, 59, 59, 999) - TR_OFFSET_MS);
 }
 
 export default async function RaporlarPage({
@@ -57,8 +72,8 @@ export default async function RaporlarPage({
 
   const seciliTip: RaporTipi | null =
     tip && GECERLI_TIPLER.includes(tip as RaporTipi) ? (tip as RaporTipi) : null;
-  const seciliBaslangic = baslangic ? new Date(baslangic) : baslangicVarsayilan();
-  const seciliBitis = bitis ? new Date(bitis) : bitisVarsayilan();
+  const seciliBaslangic = baslangic ? trGunBasi(baslangic) : baslangicVarsayilan();
+  const seciliBitis = bitis ? trGunSonu(bitis) : bitisVarsayilan();
 
   const rapor = seciliTip
     ? await raporUret(seciliTip, seciliBaslangic, seciliBitis)

@@ -3,7 +3,7 @@ import { renderToBuffer, Document, Page, Text, View, StyleSheet } from "@react-p
 import { createElement } from "react";
 
 import { requireAuth } from "@/lib/auth-helpers";
-import { raporUret, type RaporTipi } from "@/lib/raporlar";
+import { raporUret, trGunBasi, trGunSonu, type RaporTipi } from "@/lib/raporlar";
 
 const GECERLI_TIPLER: RaporTipi[] = ["gorusme", "teklif", "operasyon", "ekip"];
 
@@ -98,8 +98,8 @@ export async function GET(req: NextRequest) {
   if (!tipRaw || !GECERLI_TIPLER.includes(tipRaw as RaporTipi)) {
     return new NextResponse("Geçersiz rapor tipi", { status: 400 });
   }
-  const baslangic = baslangicRaw ? new Date(baslangicRaw) : null;
-  const bitis = bitisRaw ? new Date(bitisRaw) : null;
+  const baslangic = baslangicRaw ? trGunBasi(baslangicRaw) : null;
+  const bitis = bitisRaw ? trGunSonu(bitisRaw) : null;
   if (!baslangic || !bitis || isNaN(baslangic.getTime()) || isNaN(bitis.getTime())) {
     return new NextResponse("Geçersiz tarih", { status: 400 });
   }
