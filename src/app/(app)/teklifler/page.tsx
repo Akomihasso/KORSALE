@@ -18,6 +18,7 @@ import {
 } from "@/lib/format";
 import { FirmaArama } from "@/components/firma-arama";
 import { Sayfalama } from "@/components/sayfalama";
+import { TeklifListeSatir } from "@/components/teklif-liste-satir";
 import {
   ARALIK_ETIKET,
   ARALIK_LISTE,
@@ -304,27 +305,22 @@ export default async function TekliflerPage({
               });
               const gorunum = TEKLIF_DURUM_GORUNUM[asama];
               return (
-              <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50">
-                <TableCell className="font-mono text-xs">
-                  <Link href={`/teklifler/${t.id}`} className="hover:underline">
-                    {t.belgeNo}
-                  </Link>
-                </TableCell>
+              <TeklifListeSatir key={t.id} teklifId={t.id}>
+                <TableCell className="font-mono text-xs">{t.belgeNo}</TableCell>
                 <TableCell>
                   <Badge variant={belgeTipiRengi(t.belgeTipi)}>
                     {BELGE_TIPI_ETIKET[t.belgeTipi]}
                   </Badge>
                 </TableCell>
                 <TableCell className="max-w-xs">
-                  <Link
-                    href={`/teklifler/${t.id}`}
-                    className="block truncate font-medium hover:underline"
-                  >
-                    {t.baslik}
-                  </Link>
+                  <span className="block truncate font-medium">{t.baslik}</span>
                 </TableCell>
                 <TableCell>
-                  <Link href={`/firmalar/${t.firma.id}`} className="hover:underline">
+                  <Link
+                    href={`/firmalar/${t.firma.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:underline"
+                  >
                     {t.firma.ad}
                   </Link>
                 </TableCell>
@@ -347,7 +343,7 @@ export default async function TekliflerPage({
                 <TableCell className="text-right text-xs text-muted-foreground">
                   {trTarih(t.createdAt)}
                 </TableCell>
-              </TableRow>
+              </TeklifListeSatir>
               );
             })}
           </TableBody>
