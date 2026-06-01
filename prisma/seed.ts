@@ -9,11 +9,11 @@ async function main() {
   const passHash = await bcrypt.hash("KorsaleDev2026!", 12);
 
   const yonetici = await prisma.user.upsert({
-    where: { email: "dunyada.sonyediyil@kordinat.com.tr" },
+    where: { email: "hasan.demirkiran@kordinat.com.tr" },
     update: {},
     create: {
-      email: "dunyada.sonyediyil@kordinat.com.tr",
-      name: "Yönetici",
+      email: "hasan.demirkiran@kordinat.com.tr",
+      name: "Hasan Demirkıran",
       role: UserRole.YONETICI,
       passwordHash: passHash,
     },
@@ -176,7 +176,7 @@ async function main() {
   console.log("✅ Seed tamamlandı");
   console.log("");
   console.log("Giriş bilgileri (şifre tüm hesaplar için aynı):");
-  console.log("  Yönetici:   dunyada.sonyediyil@kordinat.com.tr");
+  console.log("  Yönetici:   hasan.demirkiran@kordinat.com.tr");
   console.log("  Satış 1:    satis1@kordinat.com");
   console.log("  Satış 2:    satis2@kordinat.com");
   console.log("  Operasyon:  operasyon@kordinat.com");

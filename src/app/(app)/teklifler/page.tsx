@@ -4,6 +4,7 @@ import type { BelgeDurum, BelgeTipi, Prisma } from "@prisma/client";
 
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
+import { guncelKurlar, tlyeCevir } from "@/lib/doviz-kuru";
 import {
   BELGE_TIPI_ETIKET,
   TEKLIF_ASAMA_ETIKET,
@@ -139,6 +140,7 @@ export default async function TekliflerPage({
     sayimRed,
     sayimIptal,
     sayimTum,
+    kurlar,
   ] = await Promise.all([
     prisma.teklif.findMany({
       where,
@@ -161,6 +163,7 @@ export default async function TekliflerPage({
     prisma.teklif.count({ where: { ...grupWhere("REDDEDILDI"), ...tarihSart } }),
     prisma.teklif.count({ where: { ...grupWhere("IPTAL"), ...tarihSart } }),
     prisma.teklif.count({ where: tarihSart }),
+    guncelKurlar(),
   ]);
 
   const grupSayimlari: Record<DurumGrubu, number> = {
@@ -174,7 +177,7 @@ export default async function TekliflerPage({
   };
 
   const sayfadakiNetTutar = teklifler.reduce(
-    (acc, t) => acc + Number(t.netTutar ?? 0),
+    (acc, t) => acc + tlyeCevir(Number(t.netTutar ?? 0), t.paraBirimi, kurlar),
     0,
   );
 

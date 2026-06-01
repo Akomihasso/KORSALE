@@ -4,6 +4,7 @@ import type { OperasyonDurum, OperasyonKategori, Prisma } from "@prisma/client";
 
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
+import { guncelKurlar, tlyeCevir } from "@/lib/doviz-kuru";
 import {
   OPERASYON_DURUM_ETIKET,
   OPERASYON_KATEGORI_ETIKET,
@@ -95,18 +96,26 @@ export default async function OperasyonlarPage({
       : {}),
   };
 
-  const [operasyonlar, toplam, kategoriSayilari, askidaSayisi] = await Promise.all([
+  const [operasyonlar, toplam, kategoriSayilari, askidaSayisi, kurlar] = await Promise.all([
     prisma.operasyon.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip: (sayfa - 1) * SAYFA_BOYUTU,
       take: SAYFA_BOYUTU,
-      include: {
+      select: {
+        id: true,
+        belgeNo: true,
+        kategori: true,
+        durum: true,
+        ilerlemeYuzde: true,
+        hedefBitisTar: true,
+        bekletmeNeden: true,
         teklif: {
           select: {
             belgeNo: true,
             baslik: true,
             netTutar: true,
+            paraBirimi: true,
             firma: { select: { id: true, ad: true } },
           },
         },
@@ -122,6 +131,7 @@ export default async function OperasyonlarPage({
     prisma.operasyon.count({
       where: { durum: "ASKIDA", ...(baslangic ? { createdAt: { gte: baslangic } } : {}) },
     }),
+    guncelKurlar(),
   ]);
 
   const sayim = (k: OperasyonKategori) =>
@@ -133,7 +143,8 @@ export default async function OperasyonlarPage({
   );
 
   const sayfadakiToplamTutar = operasyonlar.reduce(
-    (acc, o) => acc + Number(o.teklif.netTutar ?? 0),
+    (acc, o) =>
+      acc + tlyeCevir(Number(o.teklif.netTutar ?? 0), o.teklif.paraBirimi, kurlar),
     0,
   );
 
@@ -250,8 +261,13 @@ export default async function OperasyonlarPage({
               <TableRow key={o.id} className="hover:bg-muted/50">
                 <TableCell className="font-mono text-xs">
                   <Link href={`/operasyonlar/${o.id}`} className="hover:underline">
-                    {o.teklif.belgeNo}
+                    {o.belgeNo ?? o.teklif.belgeNo}
                   </Link>
+                  {o.belgeNo && (
+                    <p className="font-mono text-[10px] text-muted-foreground">
+                      ← {o.teklif.belgeNo}
+                    </p>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">

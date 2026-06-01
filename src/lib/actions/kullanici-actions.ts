@@ -90,7 +90,7 @@ export async function kullaniciOlusturAction(
     },
   });
 
-  revalidatePath("/ayarlar/kullanicilar");
+  revalidatePath("/ekip-uyeleri");
   return { ok: true };
 }
 
@@ -123,7 +123,7 @@ export async function kullaniciGuncelleAction(
     data: guncellenecek,
   });
 
-  revalidatePath("/ayarlar/kullanicilar");
+  revalidatePath("/ekip-uyeleri");
   return { ok: true };
 }
 
@@ -139,5 +139,5 @@ export async function kullaniciAktiflikAction(formData: FormData) {
     data: { isActive: yeniDurum },
   });
 
-  revalidatePath("/ayarlar/kullanicilar");
+  revalidatePath("/ekip-uyeleri");
 }

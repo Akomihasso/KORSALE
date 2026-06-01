@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { indirimOnayYuzdesi } from "@/lib/belge";
+import { guncelKurlar } from "@/lib/doviz-kuru";
 import { TeklifForm } from "@/components/teklif-form";
 import {
   Card,
@@ -23,13 +24,14 @@ export default async function TeklifDuzenlePage({ params }: { params: Params }) 
   const user = await requireAuth();
   const { id } = await params;
 
-  const [teklif, firmalar, onayEsigi] = await Promise.all([
+  const [teklif, firmalar, onayEsigi, kurlar] = await Promise.all([
     prisma.teklif.findUnique({ where: { id } }),
     prisma.firma.findMany({
       orderBy: { ad: "asc" },
       select: { id: true, ad: true, sektor: true, sehir: true },
     }),
     indirimOnayYuzdesi(),
+    guncelKurlar(),
   ]);
   if (!teklif) notFound();
 
@@ -69,6 +71,7 @@ export default async function TeklifDuzenlePage({ params }: { params: Params }) 
             firmalar={firmalar}
             teklif={teklif}
             indirimOnayEsigi={onayEsigi}
+            kurlar={kurlar}
           />
         </CardContent>
       </Card>

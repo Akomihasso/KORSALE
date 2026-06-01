@@ -408,8 +408,11 @@ export async function teklifOdemeAlindiAction(formData: FormData) {
 
     if (teklif.operasyon) return { operasyonId: teklif.operasyon.id, yeni: false };
 
+    const operasyonBelgeNo = await belgeNoUret("OPERASYON", tx);
+
     const operasyon = await tx.operasyon.create({
       data: {
+        belgeNo: operasyonBelgeNo,
         teklifId: teklif.id,
         sorumluId: teklif.sorumluId, // default: teklifi hazırlayan/sorumlu olan
         kategori: OperasyonKategori.DIGER,
@@ -464,4 +467,31 @@ export async function teklifIptalAction(formData: FormData) {
 
   revalidatePath("/teklifler");
   revalidatePath(`/teklifler/${id}`);
+}
+
+/**
+ * Yönetici-only silme. Bağlı operasyon varsa silmez (UI revalidate eder).
+ * Bağlı notlar, devirler ve bildirimler korunmaz — cascade için Prisma cascade tanımı yoksa
+ * elle temizlenir.
+ */
+export async function teklifSilAction(formData: FormData) {
+  await requireRole(UserRole.YONETICI);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const bagliOperasyon = await prisma.operasyon.count({ where: { teklifId: id } });
+  if (bagliOperasyon > 0) return;
+
+  const t = await prisma.teklif.findUnique({
+    where: { id },
+    select: { firmaId: true },
+  });
+  if (!t) return;
+
+  // Bağlı not ve devirleri sil (FK cascade onDelete kuralları zaten Cascade)
+  await prisma.teklif.delete({ where: { id } });
+
+  revalidatePath("/teklifler");
+  revalidatePath(`/firmalar/${t.firmaId}`);
+  redirect("/teklifler");
 }

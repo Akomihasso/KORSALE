@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { indirimOnayYuzdesi } from "@/lib/belge";
+import { guncelKurlar } from "@/lib/doviz-kuru";
 import { TeklifForm } from "@/components/teklif-form";
 import {
   Card,
@@ -43,7 +44,7 @@ export default async function YeniTeklifPage({
     }
   }
 
-  const [firmaKayitlari, onayEsigi] = await Promise.all([
+  const [firmaKayitlari, onayEsigi, kurlar] = await Promise.all([
     prisma.firma.findMany({
       orderBy: { ad: "asc" },
       select: {
@@ -60,6 +61,7 @@ export default async function YeniTeklifPage({
       },
     }),
     indirimOnayYuzdesi(),
+    guncelKurlar(),
   ]);
 
   // Teklif/Talimat/Sözleşme oluştururken görüşmesi olan firmaları öne çıkar:
@@ -106,6 +108,7 @@ export default async function YeniTeklifPage({
               varsayilanFirmaId={varsayilanFirmaId}
               varsayilanGorusmeId={gorusmeId}
               indirimOnayEsigi={onayEsigi}
+              kurlar={kurlar}
             />
           )}
         </CardContent>

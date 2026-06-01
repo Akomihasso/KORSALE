@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireAuth, requireRole } from "@/lib/auth-helpers";
 import {
   BildirimTipi,
   OperasyonDurum,
@@ -155,4 +156,26 @@ export async function operasyonBaslatAction(formData: FormData) {
 
   revalidatePath("/operasyonlar");
   revalidatePath(`/operasyonlar/${id}`);
+}
+
+/**
+ * Yönetici-only silme. Cascade ile bağlı asama, not, devir silinir.
+ */
+export async function operasyonSilAction(formData: FormData) {
+  const yonetici = await requireRole(UserRole.YONETICI);
+  void yonetici;
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const op = await prisma.operasyon.findUnique({
+    where: { id },
+    select: { teklif: { select: { firmaId: true } } },
+  });
+  if (!op) return;
+
+  await prisma.operasyon.delete({ where: { id } });
+
+  revalidatePath("/operasyonlar");
+  revalidatePath(`/firmalar/${op.teklif.firmaId}`);
+  redirect("/operasyonlar");
 }

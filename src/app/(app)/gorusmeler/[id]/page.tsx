@@ -25,8 +25,12 @@ import {
   trTarihSaat,
   trTutar,
 } from "@/lib/format";
-import { gorusmeDurumDegistirAction } from "@/lib/actions/gorusme-actions";
+import {
+  gorusmeDurumDegistirAction,
+  gorusmeSilAction,
+} from "@/lib/actions/gorusme-actions";
 import { DevirDialog } from "@/components/devir-dialog";
+import { SilButon } from "@/components/sil-buton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -138,13 +142,22 @@ export default async function GorusmeDetayPage({ params }: { params: Params }) {
                   )}
                 </CardDescription>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                render={<Link href={`/gorusmeler/${gorusme.id}/duzenle`} />}
-              >
-                <Pencil className="size-4" /> Düzenle
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<Link href={`/gorusmeler/${gorusme.id}/duzenle`} />}
+                >
+                  <Pencil className="size-4" /> Düzenle
+                </Button>
+                {user.role === UserRole.YONETICI && (
+                  <SilButon
+                    id={gorusme.id}
+                    action={gorusmeSilAction}
+                    onayMetni="Bu görüşmeyi silmek istediğinizden emin misiniz? Bağlı teklif varsa silinmez."
+                  />
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>

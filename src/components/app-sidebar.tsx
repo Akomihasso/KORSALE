@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS, type NavItem } from "@/lib/nav";
+import { NAV_ITEMS, type NavItem, filtreNavItems } from "@/lib/nav";
 import { Badge } from "@/components/ui/badge";
+import type { UserRole } from "@prisma/client";
 
 type Props = {
   devirBekleyenSayisi?: number;
+  userRole: UserRole;
   onNavigate?: () => void;
 };
 
@@ -17,8 +19,9 @@ function isActive(item: NavItem, pathname: string): boolean {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export function AppSidebar({ devirBekleyenSayisi = 0, onNavigate }: Props) {
+export function AppSidebar({ devirBekleyenSayisi = 0, userRole, onNavigate }: Props) {
   const pathname = usePathname();
+  const items = filtreNavItems(NAV_ITEMS, userRole);
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -30,7 +33,7 @@ export function AppSidebar({ devirBekleyenSayisi = 0, onNavigate }: Props) {
 
       <nav className="flex-1 overflow-y-auto p-3">
         <ul className="space-y-0.5">
-          {NAV_ITEMS.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon;
             const active = isActive(item, pathname);
             return (

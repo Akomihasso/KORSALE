@@ -46,6 +46,7 @@ model User {
 
   notlar      Not[]
   bildirimler Bildirim[]
+  dokumanlar  Dokuman[]
 }
 
 // ============ FİRMA & KİŞİ ============
@@ -170,7 +171,7 @@ enum TeklifRedKategori {
 
 model Teklif {
   id              String     @id @default(cuid())
-  belgeNo         String     @unique // örn: TKL-2026-0001
+  belgeNo         String     @unique // örn: KP260201 (TEKLIF), KT260201 (TALIMAT), KS260201 (SOZLESME)
   belgeTipi       BelgeTipi
   firmaId         String
   gorusmeId       String?
@@ -233,6 +234,7 @@ enum OperasyonKategori {
 
 model Operasyon {
   id            String            @id @default(cuid())
+  belgeNo       String?           @unique // örn: KO260201 — yeni kayıtlarda zorunlu, eski demo kayıtlar null olabilir
   teklifId      String            @unique
   sorumluId     String // ŞU AN sorumlu (devir ile değişir)
   kategori      OperasyonKategori @default(DIGER)
@@ -354,24 +356,60 @@ model Bildirim {
   @@index([userId, okundu])
 }
 
-// ============ DOKÜMANTASYON (KYS taslağı) ============
+// ============ KORSİSTEM (Doküman yönetimi) ============
 
-enum DokumanTipi {
+enum DokumanKategori {
+  YONETMELIK_TALIMAT
   SISTEM_TARIF
-  YAZI_BILGI
+  AKIS_SEMASI
+  YAZISMA_STANDART
   TEKLIF_SABLON
-  LISTE_FORM
+  TALIMAT_SABLON
+  SOZLESME_STANDART
 }
 
 model Dokuman {
-  id        String      @id @default(cuid())
-  tip       DokumanTipi
-  baslik    String
-  icerik    String // markdown
-  versiyon  Int         @default(1)
-  aktif     Boolean     @default(true)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id         String          @id @default(cuid())
+  kategori   DokumanKategori
+  kod        String // örn: SISTEM003, TLM001
+  revizyon   String          @default("R0") // örn: R0, R1, R2
+  baslik     String
+  dosyaUrl   String // Supabase Storage public URL
+  dosyaTipi  String // pdf, docx, xlsx, png vb.
+  dosyaBoyut Int? // byte
+  aktif      Boolean         @default(true)
+  yukleyenId String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  yukleyen User @relation(fields: [yukleyenId], references: [id])
+
+  @@index([kategori, aktif])
+  @@index([kod])
+}
+
+// ============ BELGE SAYAC ============
+
+// Belge numarası üretimi için atomic sayaç.
+// Format: <prefix><yil%100:2><sira:4>
+// Prefix: TEKLIF=KP, TALIMAT=KT, SOZLESME=KS, OPERASYON=KO
+// 2026 için seed 200, ilk yeni numara 0201'den başlar.
+// 2027 ve sonrası için sayaç 0'dan başlar, ilk numara 0001.
+
+enum BelgeSayacTipi {
+  TEKLIF
+  TALIMAT
+  SOZLESME
+  OPERASYON
+}
+
+model BelgeSayac {
+  tip       BelgeSayacTipi
+  yil       Int
+  sonNumara Int            @default(0)
+  updatedAt DateTime       @updatedAt
+
+  @@id([tip, yil])
 }
 
 // ============ AYAR ============

@@ -19,6 +19,7 @@ import type { BelgeDurum, OperasyonDurum } from "@prisma/client";
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { trGoreceli, trTarihSaat, trTutar } from "@/lib/format";
+import { guncelKurlar, gruplariTlyeTopla } from "@/lib/doviz-kuru";
 import {
   ARALIK_ETIKET,
   ARALIK_LISTE,
@@ -36,7 +37,6 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { UserRole } from "@prisma/client";
 
 export const metadata = {
   title: "Genel Durum",
@@ -69,9 +69,9 @@ export default async function GenelDurumPage({
   const [
     gorusmeSayisi,
     teklifSayisi,
-    tahminiGelirRow,
-    onaylandiOdemeBekliyorRow,
-    tahsilEdilenRow,
+    tahminiGelirGruplar,
+    onaylandiOdemeBekliyorGruplar,
+    tahsilEdilenGruplar,
     aktifOperasyonSayisi,
     askidakiSayisi,
     indirimOnayBekleyenSayisi,
@@ -82,6 +82,7 @@ export default async function GenelDurumPage({
     askidakiOperasyonlar,
     bekleyenOperasyonlar,
     hatirlatmaGorusmeler,
+    kurlar,
   ] = await Promise.all([
     // KPI: Görüşme sayısı
     prisma.gorusme.count({
@@ -91,8 +92,9 @@ export default async function GenelDurumPage({
     prisma.teklif.count({
       where: tarihFiltresi ? { createdAt: tarihFiltresi } : undefined,
     }),
-    // KPI: Tahmini gelir — cevap bekleyen tekliflerin netTutar toplamı
-    prisma.teklif.aggregate({
+    // KPI: Tahmini gelir — para birimi bazında gruplandırılmış, sonra TL'ye çevrilir
+    prisma.teklif.groupBy({
+      by: ["paraBirimi"],
       _sum: { netTutar: true },
       where: {
         durum: { in: CEVAP_BEKLEYEN_TEKLIF_DURUMLARI },
@@ -100,7 +102,8 @@ export default async function GenelDurumPage({
       },
     }),
     // KPI: Onaylandı ama ödeme bekliyor (KABUL & odemeAlindiTar = null)
-    prisma.teklif.aggregate({
+    prisma.teklif.groupBy({
+      by: ["paraBirimi"],
       _sum: { netTutar: true },
       where: {
         durum: "KABUL",
@@ -109,7 +112,8 @@ export default async function GenelDurumPage({
       },
     }),
     // KPI: Tahsil edilen — ödeme alınmış teklifler (kabul + para alındı)
-    prisma.teklif.aggregate({
+    prisma.teklif.groupBy({
+      by: ["paraBirimi"],
       _sum: { netTutar: true },
       where: {
         durum: "KABUL",
@@ -126,14 +130,15 @@ export default async function GenelDurumPage({
     // Gündem: indirim onayı bekleyen teklif
     prisma.teklif.count({ where: { durum: "ONAY_BEKLIYOR" } }),
 
-    // BEKLEYENLER PANELİ
-    // Bekleyen iş devri (sana gelen)
+    // BEKLEYENLER PANELİ (sistem geneli — herkes tüm hareketleri görür)
+    // Bekleyen iş devri
     prisma.gorevDevir.findMany({
-      where: { devralanId: user.id, durum: "BEKLIYOR" },
+      where: { durum: "BEKLIYOR" },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: {
         devreden: { select: { name: true } },
+        devralan: { select: { name: true } },
         gorusme: { select: { konu: true } },
         teklif: { select: { belgeNo: true, baslik: true } },
         operasyon: {
@@ -141,28 +146,23 @@ export default async function GenelDurumPage({
         },
       },
     }),
-    // İndirim onayı bekleyen (yönetici için)
-    user.role === UserRole.YONETICI
-      ? prisma.teklif.findMany({
-          where: { durum: "ONAY_BEKLIYOR" },
-          orderBy: { createdAt: "desc" },
-          take: 5,
-          select: {
-            id: true,
-            belgeNo: true,
-            baslik: true,
-            indirimYuzde: true,
-            firma: { select: { ad: true } },
-            sorumlu: { select: { name: true } },
-          },
-        })
-      : Promise.resolve([]),
-    // Cevap bekleyen kendi teklifin
+    // İndirim onayı bekleyen
     prisma.teklif.findMany({
-      where: {
-        sorumluId: user.id,
-        durum: { in: CEVAP_BEKLEYEN_TEKLIF_DURUMLARI },
+      where: { durum: "ONAY_BEKLIYOR" },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        belgeNo: true,
+        baslik: true,
+        indirimYuzde: true,
+        firma: { select: { ad: true } },
+        sorumlu: { select: { name: true } },
       },
+    }),
+    // Cevap bekleyen teklifler
+    prisma.teklif.findMany({
+      where: { durum: { in: CEVAP_BEKLEYEN_TEKLIF_DURUMLARI } },
       orderBy: { gonderilmeTar: "desc" },
       take: 5,
       select: {
@@ -171,15 +171,12 @@ export default async function GenelDurumPage({
         baslik: true,
         gonderilmeTar: true,
         firma: { select: { ad: true } },
+        sorumlu: { select: { name: true } },
       },
     }),
-    // Onaylandı, ödeme bekleyen kendi teklifin
+    // Onaylandı, ödeme bekleyen teklifler
     prisma.teklif.findMany({
-      where: {
-        sorumluId: user.id,
-        durum: "KABUL",
-        odemeAlindiTar: null,
-      },
+      where: { durum: "KABUL", odemeAlindiTar: null },
       orderBy: { kabulTar: "desc" },
       take: 5,
       select: {
@@ -189,16 +186,18 @@ export default async function GenelDurumPage({
         netTutar: true,
         kabulTar: true,
         firma: { select: { ad: true } },
+        sorumlu: { select: { name: true } },
       },
     }),
-    // Askıdaki operasyon (sen sorumlusan)
+    // Askıdaki operasyon
     prisma.operasyon.findMany({
-      where: { sorumluId: user.id, durum: "ASKIDA" },
+      where: { durum: "ASKIDA" },
       orderBy: { updatedAt: "desc" },
       take: 5,
       select: {
         id: true,
         bekletmeNeden: true,
+        sorumlu: { select: { name: true } },
         teklif: {
           select: {
             belgeNo: true,
@@ -208,14 +207,15 @@ export default async function GenelDurumPage({
         },
       },
     }),
-    // Beklemede olan operasyon — sen sorumlusan, henüz başlatmadın
+    // Başlamayı bekleyen operasyon
     prisma.operasyon.findMany({
-      where: { sorumluId: user.id, durum: "BEKLIYOR" },
+      where: { durum: "BEKLIYOR" },
       orderBy: { createdAt: "desc" },
       take: 5,
       select: {
         id: true,
         createdAt: true,
+        sorumlu: { select: { name: true } },
         teklif: {
           select: {
             belgeNo: true,
@@ -226,10 +226,9 @@ export default async function GenelDurumPage({
         },
       },
     }),
-    // Hatırlatma vakti gelmiş görüşmelerin (sen sorumlusan)
+    // Hatırlatma vakti geçmiş görüşmeler
     prisma.gorusme.findMany({
       where: {
-        sorumluId: user.id,
         durum: "ACIK",
         hatirlatma: { lte: new Date() },
       },
@@ -240,15 +239,19 @@ export default async function GenelDurumPage({
         konu: true,
         hatirlatma: true,
         firma: { select: { ad: true } },
+        sorumlu: { select: { name: true } },
       },
     }),
+    // TCMB güncel kurları (24sa cache)
+    guncelKurlar(),
   ]);
 
-  const tahminiGelir = Number(tahminiGelirRow._sum.netTutar ?? 0);
-  const onaylandiOdemeBekliyor = Number(
-    onaylandiOdemeBekliyorRow._sum.netTutar ?? 0,
+  const tahminiGelir = gruplariTlyeTopla(tahminiGelirGruplar, kurlar);
+  const onaylandiOdemeBekliyor = gruplariTlyeTopla(
+    onaylandiOdemeBekliyorGruplar,
+    kurlar,
   );
-  const tahsilEdilen = Number(tahsilEdilenRow._sum.netTutar ?? 0);
+  const tahsilEdilen = gruplariTlyeTopla(tahsilEdilenGruplar, kurlar);
 
   type Kpi = {
     baslik: string;
@@ -424,7 +427,7 @@ export default async function GenelDurumPage({
                   <Badge variant="destructive">{tumBekleyenler}</Badge>
                 )}
               </div>
-              <CardDescription>Senin cevap/aksiyon bekleyen kayıtların</CardDescription>
+              <CardDescription>Sistem genelinde aksiyon bekleyen kayıtlar</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {tumBekleyenler === 0 ? (
@@ -436,7 +439,7 @@ export default async function GenelDurumPage({
                 <>
                   {bekleyenDevirler.length > 0 && (
                     <BekleyenGrup
-                      baslik="Sana gelen iş devri"
+                      baslik="Bekleyen iş devri"
                       sayi={bekleyenDevirler.length}
                       icon={Inbox}
                       tumHref="/is-devri?grup=BEKLEYEN"
@@ -453,7 +456,7 @@ export default async function GenelDurumPage({
                           <BekleyenSatir
                             key={d.id}
                             baslik={baslik}
-                            altYazi={`${d.devreden.name} · ${trGoreceli(d.createdAt)}`}
+                            altYazi={`${d.devreden.name} → ${d.devralan.name} · ${trGoreceli(d.createdAt)}`}
                             href="/is-devri?grup=BEKLEYEN"
                           />
                         );
@@ -481,7 +484,7 @@ export default async function GenelDurumPage({
 
                   {cevapBekleyenTeklifler.length > 0 && (
                     <BekleyenGrup
-                      baslik="Cevap bekleyen teklifin"
+                      baslik="Cevap bekleyen teklif"
                       sayi={cevapBekleyenTeklifler.length}
                       icon={FileText}
                       tumHref="/teklifler?grup=BEKLIYOR"
@@ -490,7 +493,7 @@ export default async function GenelDurumPage({
                         <BekleyenSatir
                           key={t.id}
                           baslik={`${t.belgeNo} — ${t.baslik}`}
-                          altYazi={`${t.firma.ad}${t.gonderilmeTar ? ` · gönderildi ${trGoreceli(t.gonderilmeTar)}` : ""}`}
+                          altYazi={`${t.firma.ad} · ${t.sorumlu.name}${t.gonderilmeTar ? ` · gönderildi ${trGoreceli(t.gonderilmeTar)}` : ""}`}
                           href={`/teklifler/${t.id}`}
                         />
                       ))}
@@ -508,7 +511,7 @@ export default async function GenelDurumPage({
                         <BekleyenSatir
                           key={t.id}
                           baslik={`${t.belgeNo} — ${t.baslik}`}
-                          altYazi={`${t.firma.ad} · ${trTutar(t.netTutar)}${t.kabulTar ? ` · kabul ${trGoreceli(t.kabulTar)}` : ""}`}
+                          altYazi={`${t.firma.ad} · ${t.sorumlu.name} · ${trTutar(t.netTutar)}${t.kabulTar ? ` · kabul ${trGoreceli(t.kabulTar)}` : ""}`}
                           href={`/teklifler/${t.id}`}
                         />
                       ))}
@@ -526,7 +529,7 @@ export default async function GenelDurumPage({
                         <BekleyenSatir
                           key={o.id}
                           baslik={`${o.teklif.belgeNo} — ${o.teklif.baslik}`}
-                          altYazi={`${o.teklif.firma.ad} · ${trTutar(o.teklif.netTutar)} · açıldı ${trGoreceli(o.createdAt)}`}
+                          altYazi={`${o.teklif.firma.ad} · ${o.sorumlu.name} · açıldı ${trGoreceli(o.createdAt)}`}
                           href={`/operasyonlar/${o.id}`}
                         />
                       ))}
@@ -544,7 +547,7 @@ export default async function GenelDurumPage({
                         <BekleyenSatir
                           key={o.id}
                           baslik={`${o.teklif.belgeNo} — ${o.teklif.baslik}`}
-                          altYazi={`${o.teklif.firma.ad}${o.bekletmeNeden ? ` · ${o.bekletmeNeden}` : ""}`}
+                          altYazi={`${o.teklif.firma.ad} · ${o.sorumlu.name}${o.bekletmeNeden ? ` · ${o.bekletmeNeden}` : ""}`}
                           href={`/operasyonlar/${o.id}`}
                         />
                       ))}
@@ -562,7 +565,7 @@ export default async function GenelDurumPage({
                         <BekleyenSatir
                           key={g.id}
                           baslik={g.konu}
-                          altYazi={`${g.firma.ad}${g.hatirlatma ? ` · ${trTarihSaat(g.hatirlatma)}` : ""}`}
+                          altYazi={`${g.firma.ad} · ${g.sorumlu.name}${g.hatirlatma ? ` · ${trTarihSaat(g.hatirlatma)}` : ""}`}
                           href={`/gorusmeler/${g.id}`}
                         />
                       ))}

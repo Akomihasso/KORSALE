@@ -25,9 +25,11 @@ import {
   operasyonBaslatAction,
   operasyonBittiAction,
   operasyonKategoriDegistirAction,
+  operasyonSilAction,
   operasyonSorumluDegistirAction,
 } from "@/lib/actions/operasyon-actions";
 import { DevirDialog } from "@/components/devir-dialog";
+import { SilButon } from "@/components/sil-buton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -132,7 +134,7 @@ export default async function OperasyonDetayPage({ params }: { params: Params })
         <div className="space-y-6 lg:col-span-2">
           {/* ÜST KART: özet */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-start justify-between gap-3">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={operasyonDurumRengi(operasyon.durum)}>
@@ -141,8 +143,11 @@ export default async function OperasyonDetayPage({ params }: { params: Params })
                   <Badge variant="outline">
                     {OPERASYON_KATEGORI_ETIKET[operasyon.kategori]}
                   </Badge>
+                  {operasyon.belgeNo && (
+                    <span className="font-mono text-xs">{operasyon.belgeNo}</span>
+                  )}
                   <span className="font-mono text-xs text-muted-foreground">
-                    {operasyon.teklif.belgeNo}
+                    ← {operasyon.teklif.belgeNo}
                   </span>
                 </div>
                 <CardTitle className="text-xl">{operasyon.teklif.baslik}</CardTitle>
@@ -159,6 +164,13 @@ export default async function OperasyonDetayPage({ params }: { params: Params })
                   )}
                 </CardDescription>
               </div>
+              {yonetici && (
+                <SilButon
+                  id={operasyon.id}
+                  action={operasyonSilAction}
+                  onayMetni="Bu operasyonu silmek istediğinizden emin misiniz? Bağlı not, aşama ve devirler de silinecek."
+                />
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 text-sm sm:grid-cols-3">

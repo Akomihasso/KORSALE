@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Menu, Search } from "lucide-react";
-import type { BildirimTipi } from "@prisma/client";
+import type { BildirimTipi, UserRole } from "@prisma/client";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { BildirimPopover } from "@/components/bildirim-popover";
@@ -22,7 +22,7 @@ type BildirimItem = {
 };
 
 type Props = {
-  user: { name: string; email: string; rolEtiketi: string };
+  user: { name: string; email: string; rolEtiketi: string; role: UserRole };
   bildirimSayisi: number;
   bildirimler: BildirimItem[];
   devirBekleyenSayisi: number;
@@ -50,6 +50,7 @@ export function AppTopbar({
           <SheetTitle className="sr-only">Navigasyon</SheetTitle>
           <AppSidebar
             devirBekleyenSayisi={devirBekleyenSayisi}
+            userRole={user.role}
             onNavigate={() => setMobileOpen(false)}
           />
         </SheetContent>

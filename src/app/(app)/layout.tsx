@@ -28,7 +28,7 @@ export default async function AppLayout({
   return (
     <div className="flex h-screen bg-background p-2 gap-2 md:p-3 md:gap-3">
       <aside className="hidden w-60 shrink-0 overflow-hidden rounded-2xl shadow-sm md:block">
-        <AppSidebar devirBekleyenSayisi={devirBekleyenSayisi} />
+        <AppSidebar devirBekleyenSayisi={devirBekleyenSayisi} userRole={user.role} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm">
@@ -37,6 +37,7 @@ export default async function AppLayout({
             name: user.name ?? "Kullanıcı",
             email: user.email ?? "",
             rolEtiketi: ROL_ETIKETLERI[user.role],
+            role: user.role,
           }}
           bildirimSayisi={bildirimSayisi}
           bildirimler={sonBildirimler}

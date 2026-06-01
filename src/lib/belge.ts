@@ -1,34 +1,55 @@
 import { prisma } from "@/lib/prisma";
-import type { BelgeTipi } from "@prisma/client";
-
-const TIP_PREFIX: Record<BelgeTipi, string> = {
-  TEKLIF: "TKL",
-  TALIMAT: "TLM",
-  SOZLESME: "SZL",
-};
+import type { Prisma } from "@prisma/client";
 
 /**
- * Yıl bazlı sıralı belge numarası üretir. Örn: TKL-2026-0001
- * Aynı tipte mevcut en yüksek numarayı bulup +1 ile döndürür.
+ * Belge sayaç tipi.
+ * Teklif modelindeki BelgeTipi enum'una OPERASYON eklenmiş hali.
  */
-export async function belgeNoUret(tip: BelgeTipi): Promise<string> {
-  const prefix = TIP_PREFIX[tip];
-  const yil = new Date().getFullYear();
-  const onek = `${prefix}-${yil}-`;
+export type BelgeSayacTipi = "TEKLIF" | "TALIMAT" | "SOZLESME" | "OPERASYON";
 
-  const sonuncu = await prisma.teklif.findFirst({
-    where: { belgeTipi: tip, belgeNo: { startsWith: onek } },
-    orderBy: { belgeNo: "desc" },
-    select: { belgeNo: true },
-  });
+const PREFIX: Record<BelgeSayacTipi, string> = {
+  TEKLIF: "KP",
+  TALIMAT: "KT",
+  SOZLESME: "KS",
+  OPERASYON: "KO",
+};
 
-  let sira = 1;
-  if (sonuncu) {
-    const sonuncuSira = Number(sonuncu.belgeNo.slice(onek.length));
-    if (Number.isFinite(sonuncuSira)) sira = sonuncuSira + 1;
-  }
+type PrismaLike = Prisma.TransactionClient | typeof prisma;
 
-  return `${onek}${String(sira).padStart(4, "0")}`;
+/**
+ * Belge numarası üretimi.
+ *
+ * Format: <PREFIX><YY><SIRA4>  → örn: KP260201
+ *   - PREFIX: TEKLIF=KP, TALIMAT=KT, SOZLESME=KS, OPERASYON=KO
+ *   - YY: yılın son 2 hanesi
+ *   - SIRA4: 4 haneli sıfır dolgulu sıra numarası
+ *
+ * Atomic: tek bir UPSERT + RETURNING. 2026 sayacı seed ile 200'den başlar
+ * (ilk yeni numara KP260201). 2027+ için sayaç 0'dan başlar (ilk numara KP270001).
+ *
+ * Transaction içinde kullanmak için ikinci parametre olarak tx geçilebilir.
+ */
+export async function belgeNoUret(
+  tip: BelgeSayacTipi,
+  db: PrismaLike = prisma,
+  tarih: Date = new Date(),
+): Promise<string> {
+  const yil = tarih.getFullYear();
+
+  const rows = await db.$queryRaw<{ sonNumara: number }[]>`
+    INSERT INTO "BelgeSayac" ("tip", "yil", "sonNumara", "updatedAt")
+    VALUES (${tip}::"BelgeSayacTipi", ${yil}, 1, NOW())
+    ON CONFLICT ("tip", "yil") DO UPDATE
+    SET "sonNumara" = "BelgeSayac"."sonNumara" + 1,
+        "updatedAt" = NOW()
+    RETURNING "sonNumara"
+  `;
+
+  const sira = rows[0].sonNumara;
+  const yy = String(yil % 100).padStart(2, "0");
+  const seq = String(sira).padStart(4, "0");
+
+  return `${PREFIX[tip]}${yy}${seq}`;
 }
 
 const AYAR_INDIRIM_ONAY_YUZDE = "indirim_onay_yuzde";

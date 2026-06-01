@@ -11,6 +11,7 @@ import {
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { trTutar } from "@/lib/format";
+import { guncelKurlar, gruplariTlyeTopla } from "@/lib/doviz-kuru";
 import {
   ARALIK_ETIKET,
   ARALIK_LISTE,
@@ -60,13 +61,14 @@ export default async function FunnelPage({
     gorusmeSayisi,
     gorusmeTahminToplam,
     teklifSayisi,
-    teklifNetToplam,
+    teklifNetGruplar,
     cevapBekleyenSayisi,
-    cevapBekleyenTutar,
+    cevapBekleyenGruplar,
     kabulSayisi,
-    kabulTutar,
+    kabulGruplar,
     operasyonSayisi,
     aktifOperasyonSayisi,
+    kurlar,
   ] = await Promise.all([
     prisma.gorusme.count({ where: tarihGorusme }),
     prisma.gorusme.aggregate({
@@ -74,11 +76,16 @@ export default async function FunnelPage({
       where: tarihGorusme,
     }),
     prisma.teklif.count({ where: tarihTeklif }),
-    prisma.teklif.aggregate({ _sum: { netTutar: true }, where: tarihTeklif }),
+    prisma.teklif.groupBy({
+      by: ["paraBirimi"],
+      _sum: { netTutar: true },
+      where: tarihTeklif,
+    }),
     prisma.teklif.count({
       where: { durum: { in: ["GONDERILDI", "BEKLEMEDE"] }, ...tarihTeklif },
     }),
-    prisma.teklif.aggregate({
+    prisma.teklif.groupBy({
+      by: ["paraBirimi"],
       _sum: { netTutar: true },
       where: { durum: { in: ["GONDERILDI", "BEKLEMEDE"] }, ...tarihTeklif },
     }),
@@ -88,7 +95,8 @@ export default async function FunnelPage({
         ...(baslangic ? { kabulTar: { gte: baslangic } } : {}),
       },
     }),
-    prisma.teklif.aggregate({
+    prisma.teklif.groupBy({
+      by: ["paraBirimi"],
       _sum: { netTutar: true },
       where: {
         durum: "KABUL",
@@ -104,7 +112,12 @@ export default async function FunnelPage({
         ...(baslangic ? { createdAt: { gte: baslangic } } : {}),
       },
     }),
+    guncelKurlar(),
   ]);
+
+  const teklifNetToplam = gruplariTlyeTopla(teklifNetGruplar, kurlar);
+  const cevapBekleyenTutar = gruplariTlyeTopla(cevapBekleyenGruplar, kurlar);
+  const kabulTutar = gruplariTlyeTopla(kabulGruplar, kurlar);
 
   type Katman = {
     isim: string;
@@ -127,15 +140,15 @@ export default async function FunnelPage({
     {
       isim: "Teklifler",
       sayi: teklifSayisi,
-      tutar: Number(teklifNetToplam._sum.netTutar ?? 0) || null,
-      aciklama: "Oluşturulmuş tüm teklifler",
+      tutar: teklifNetToplam || null,
+      aciklama: "Oluşturulmuş tüm teklifler (TL karşılığı)",
       href: "/teklifler",
       icon: FileText,
     },
     {
       isim: "Cevap Bekleyen",
       sayi: cevapBekleyenSayisi,
-      tutar: Number(cevapBekleyenTutar._sum.netTutar ?? 0) || null,
+      tutar: cevapBekleyenTutar || null,
       aciklama: "Müşteriye gönderildi, henüz kararsız",
       href: "/teklifler?grup=ACIK",
       icon: Send,
@@ -143,8 +156,8 @@ export default async function FunnelPage({
     {
       isim: "Kazanılan (Ciro)",
       sayi: kabulSayisi,
-      tutar: Number(kabulTutar._sum.netTutar ?? 0) || null,
-      aciklama: "Kabul edilen teklifler — gerçek ciro",
+      tutar: kabulTutar || null,
+      aciklama: "Kabul edilen teklifler — gerçek ciro (TL)",
       href: "/teklifler?grup=KAZANILAN",
       icon: CheckCircle2,
     },

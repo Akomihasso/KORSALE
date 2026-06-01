@@ -42,8 +42,10 @@ import {
   teklifOdemeAlindiAction,
   teklifRedAction,
   teklifIptalAction,
+  teklifSilAction,
 } from "@/lib/actions/teklif-actions";
 import { DevirDialog } from "@/components/devir-dialog";
+import { SilButon } from "@/components/sil-buton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -216,15 +218,24 @@ export default async function TeklifDetayPage({ params }: { params: Params }) {
                   )}
                 </CardDescription>
               </div>
-              {duzenlenebilir && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  render={<Link href={`/teklifler/${teklif.id}/duzenle`} />}
-                >
-                  <Pencil className="size-4" /> Düzenle
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {duzenlenebilir && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={<Link href={`/teklifler/${teklif.id}/duzenle`} />}
+                  >
+                    <Pencil className="size-4" /> Düzenle
+                  </Button>
+                )}
+                {yonetici && (
+                  <SilButon
+                    id={teklif.id}
+                    action={teklifSilAction}
+                    onayMetni="Bu belgeyi silmek istediğinizden emin misiniz? Bağlı operasyon varsa silinmez."
+                  />
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>

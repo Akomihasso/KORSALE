@@ -15,6 +15,12 @@ import {
   datetimeLocalInputDegeri,
   trTutar,
 } from "@/lib/format";
+import {
+  DESTEKLENEN_PARA_BIRIMLERI,
+  PARA_BIRIMI_ETIKET,
+  tlyeCevir,
+  type ParaBirimi,
+} from "@/lib/doviz-kuru";
 import { FirmaSecici, type FirmaOpsiyonu } from "@/components/firma-secici";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +56,7 @@ type Props = {
   varsayilanFirmaId?: string;
   varsayilanGorusmeId?: string;
   indirimOnayEsigi: number;
+  kurlar: Record<ParaBirimi, number>;
   teklif?: Teklif;
 };
 
@@ -58,6 +65,7 @@ export function TeklifForm({
   varsayilanFirmaId,
   varsayilanGorusmeId,
   indirimOnayEsigi,
+  kurlar,
   teklif,
 }: Props) {
   const router = useRouter();
@@ -67,6 +75,9 @@ export function TeklifForm({
     teklif?.belgeTipi ?? "TEKLIF",
   );
   const [tutar, setTutar] = useState<string>(teklif?.tutar?.toString() ?? "");
+  const [paraBirimi, setParaBirimi] = useState<ParaBirimi>(
+    ((teklif?.paraBirimi ?? "TRY").toUpperCase() as ParaBirimi) ?? "TRY",
+  );
   const [indirimYuzde, setIndirimYuzde] = useState<string>(
     teklif?.indirimYuzde?.toString() ?? "",
   );
@@ -93,6 +104,11 @@ export function TeklifForm({
     if (!Number.isFinite(i) || i <= 0) return t;
     return Math.round(t * (1 - i / 100) * 100) / 100;
   }, [tutar, indirimYuzde]);
+
+  const netTutarTl = useMemo(() => {
+    if (netTutar === null || paraBirimi === "TRY") return null;
+    return tlyeCevir(netTutar, paraBirimi, kurlar);
+  }, [netTutar, paraBirimi, kurlar]);
 
   const indirimSayi = Number(indirimYuzde.replace(",", "."));
   const onayGerekir =
@@ -194,7 +210,7 @@ export function TeklifForm({
 
       <div className="space-y-2">
         <Label htmlFor="tutar">
-          Tutar (₺) <span className="text-destructive">*</span>
+          Tutar <span className="text-destructive">*</span>
         </Label>
         <Input
           id="tutar"
@@ -213,12 +229,27 @@ export function TeklifForm({
 
       <div className="space-y-2">
         <Label htmlFor="paraBirimi">Para birimi</Label>
-        <Input
-          id="paraBirimi"
-          name="paraBirimi"
-          defaultValue={teklif?.paraBirimi ?? "TRY"}
-          maxLength={3}
-        />
+        <input type="hidden" name="paraBirimi" value={paraBirimi} />
+        <Select
+          value={paraBirimi}
+          onValueChange={(v) => setParaBirimi(v as ParaBirimi)}
+        >
+          <SelectTrigger id="paraBirimi">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DESTEKLENEN_PARA_BIRIMLERI.map((kod) => (
+              <SelectItem key={kod} value={kod}>
+                {PARA_BIRIMI_ETIKET[kod]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {paraBirimi !== "TRY" && (
+          <p className="text-xs text-muted-foreground">
+            Kur: 1 {paraBirimi} = {trTutar(kurlar[paraBirimi])} (TCMB)
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -260,11 +291,19 @@ export function TeklifForm({
       </div>
 
       {netTutar !== null && (
-        <div className="md:col-span-2 rounded-lg border bg-muted/30 px-4 py-3 text-sm">
+        <div className="md:col-span-2 rounded-lg border bg-muted/30 px-4 py-3 text-sm space-y-1">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Net tutar:</span>
-            <span className="text-lg font-semibold">{trTutar(netTutar)}</span>
+            <span className="text-lg font-semibold">
+              {trTutar(netTutar)} {paraBirimi !== "TRY" && paraBirimi}
+            </span>
           </div>
+          {netTutarTl !== null && (
+            <div className="flex items-center justify-between border-t pt-1 text-xs">
+              <span className="text-muted-foreground">TL karşılığı:</span>
+              <span className="font-medium">{trTutar(netTutarTl)}</span>
+            </div>
+          )}
         </div>
       )}
 

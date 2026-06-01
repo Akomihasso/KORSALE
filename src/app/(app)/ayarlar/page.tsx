@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Settings, Users } from "lucide-react";
+import { Settings } from "lucide-react";
 
 import { requireRole } from "@/lib/auth-helpers";
 import { UserRole } from "@prisma/client";
@@ -13,12 +13,6 @@ import {
 export const metadata = { title: "Ayarlar" };
 
 const AYAR_KARTLARI = [
-  {
-    href: "/ayarlar/kullanicilar",
-    icon: Users,
-    title: "Kullanıcılar",
-    description: "Kullanıcı ekle, düzenle, rolünü ve aktiflik durumunu yönet",
-  },
   {
     href: "/ayarlar/sistem",
     icon: Settings,

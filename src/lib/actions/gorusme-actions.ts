@@ -5,11 +5,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireAuth, requireRole } from "@/lib/auth-helpers";
 import {
   GorusmeDurum,
   GorusmeSonuc,
   GorusmeTipi,
+  UserRole,
 } from "@prisma/client";
 import { parseFormData, type ActionState } from "./_shared";
 
@@ -143,4 +144,28 @@ export async function gorusmeDurumDegistirAction(formData: FormData) {
   revalidatePath("/gorusmeler");
   revalidatePath(`/gorusmeler/${id}`);
   revalidatePath(`/firmalar/${g.firmaId}`);
+}
+
+/**
+ * Yönetici-only silme. Bağlı teklif varsa silmez (return) — UI revalidate eder.
+ */
+export async function gorusmeSilAction(formData: FormData) {
+  await requireRole(UserRole.YONETICI);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const bagliTeklif = await prisma.teklif.count({ where: { gorusmeId: id } });
+  if (bagliTeklif > 0) return;
+
+  const g = await prisma.gorusme.findUnique({
+    where: { id },
+    select: { firmaId: true },
+  });
+  if (!g) return;
+
+  await prisma.gorusme.delete({ where: { id } });
+
+  revalidatePath("/gorusmeler");
+  revalidatePath(`/firmalar/${g.firmaId}`);
+  redirect("/gorusmeler");
 }
