@@ -6,7 +6,10 @@ import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { davetMailiGonder } from "@/lib/mail";
 import { UserRole } from "@prisma/client";
+
+const GIRIS_URL = "https://korsale.tr/giris";
 
 const ROL_DEGERLERI = ["YONETICI", "SATIS", "OPERASYON", "GOZLEMCI"] as const;
 
@@ -81,7 +84,7 @@ export async function kullaniciOlusturAction(
     };
   }
 
-  await prisma.user.create({
+  const yeniKullanici = await prisma.user.create({
     data: {
       email: data!.email.toLowerCase(),
       name: data!.name.trim(),
@@ -89,6 +92,17 @@ export async function kullaniciOlusturAction(
       passwordHash: await bcrypt.hash(data!.password, 12),
     },
   });
+
+  const mailSonuc = await davetMailiGonder({
+    ad: yeniKullanici.name ?? data!.name.trim(),
+    email: yeniKullanici.email,
+    gecicSifre: data!.password,
+    girisUrl: GIRIS_URL,
+  });
+
+  if (!mailSonuc.ok) {
+    console.error("[kullaniciOlustur] davet maili gönderilemedi:", mailSonuc.error);
+  }
 
   revalidatePath("/ekip-uyeleri");
   return { ok: true };
