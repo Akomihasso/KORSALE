@@ -105,7 +105,7 @@ export function KullaniciFormDialog(props: CreateProps | EditProps) {
           <DialogDescription>
             {isEdit
               ? "Ad, rol veya aktiflik durumunu güncelleyebilirsiniz. Şifre boş bırakılırsa değişmez."
-              : "Kullanıcının e-postası giriş için kullanılır."}
+              : "Kayıt sonrası geçici şifre içeren davet e-postası otomatik gönderilir. Kullanıcı ilk girişten sonra Profil'den kendi şifresini belirler."}
           </DialogDescription>
         </DialogHeader>
 
@@ -161,27 +161,26 @@ export function KullaniciFormDialog(props: CreateProps | EditProps) {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">
-              Şifre{" "}
-              {isEdit && (
+          {isEdit && (
+            <div className="space-y-2">
+              <Label htmlFor="password">
+                Şifre{" "}
                 <span className="text-xs font-normal text-muted-foreground">
                   (boş bırakılırsa değişmez, min 8 karakter)
                 </span>
+              </Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                minLength={0}
+                autoComplete="new-password"
+              />
+              {state.fieldErrors?.password && (
+                <p className="text-xs text-destructive">{state.fieldErrors.password}</p>
               )}
-            </Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required={!isEdit}
-              minLength={isEdit ? 0 : 8}
-              autoComplete="new-password"
-            />
-            {state.fieldErrors?.password && (
-              <p className="text-xs text-destructive">{state.fieldErrors.password}</p>
-            )}
-          </div>
+            </div>
+          )}
 
           {isEdit && (
             <div className="flex items-center justify-between rounded-lg border p-3">

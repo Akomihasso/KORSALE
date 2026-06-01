@@ -1,5 +1,6 @@
 "use server";
 
+import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -13,11 +14,21 @@ const GIRIS_URL = "https://korsale.tr/giris";
 
 const ROL_DEGERLERI = ["YONETICI", "SATIS", "OPERASYON", "GOZLEMCI"] as const;
 
+// Karışabilen karakterler (0/O, 1/l/I) çıkarıldı — kullanıcı maille gelen şifreyi elle yazacak
+const SIFRE_ALFABE = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+function gecicSifreUret(uzunluk = 12) {
+  let s = "";
+  for (let i = 0; i < uzunluk; i++) {
+    s += SIFRE_ALFABE[randomInt(SIFRE_ALFABE.length)];
+  }
+  return s;
+}
+
 const kullaniciCreateSchema = z.object({
   email: z.string().email("Geçerli bir e-posta girin"),
   name: z.string().min(2, "Ad en az 2 karakter olmalı").max(80),
   role: z.enum(ROL_DEGERLERI),
-  password: z.string().min(8, "Şifre en az 8 karakter olmalı"),
 });
 
 const kullaniciUpdateSchema = z.object({
@@ -84,19 +95,21 @@ export async function kullaniciOlusturAction(
     };
   }
 
+  const gecicSifre = gecicSifreUret(12);
+
   const yeniKullanici = await prisma.user.create({
     data: {
       email: data!.email.toLowerCase(),
       name: data!.name.trim(),
       role: data!.role,
-      passwordHash: await bcrypt.hash(data!.password, 12),
+      passwordHash: await bcrypt.hash(gecicSifre, 12),
     },
   });
 
   const mailSonuc = await davetMailiGonder({
     ad: yeniKullanici.name ?? data!.name.trim(),
     email: yeniKullanici.email,
-    gecicSifre: data!.password,
+    gecicSifre,
     girisUrl: GIRIS_URL,
   });
 
