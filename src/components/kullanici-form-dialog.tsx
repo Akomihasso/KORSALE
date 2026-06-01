@@ -70,13 +70,26 @@ export function KullaniciFormDialog(props: CreateProps | EditProps) {
 
   useEffect(() => {
     if (state.ok) {
-      toast.success(isEdit ? "Kullanıcı güncellendi" : "Kullanıcı oluşturuldu");
+      if (isEdit) {
+        toast.success("Kullanıcı güncellendi");
+      } else if (state.mailGonderildi) {
+        toast.success("Kullanıcı oluşturuldu", {
+          description: `Davet maili ${state.mailHedef} adresine gönderildi.`,
+        });
+      } else {
+        toast.warning("Kullanıcı oluşturuldu, davet maili gönderilemedi", {
+          description: state.mailHata
+            ? `Sebep: ${state.mailHata} — şifreyi elle iletmen gerek.`
+            : "Şifreyi elle iletmen gerek.",
+          duration: 10000,
+        });
+      }
       // Form action başarıyla döndüğünde dialog'u kapat — kontrollü modal için
       // bu setState legitim; ESLint heuristic'ini sustur.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false);
     }
-  }, [state.ok, isEdit]);
+  }, [state.ok, state.mailGonderildi, state.mailHedef, state.mailHata, isEdit]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

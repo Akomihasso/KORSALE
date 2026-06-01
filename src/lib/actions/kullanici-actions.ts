@@ -43,6 +43,9 @@ export type ActionState = {
   ok: boolean;
   error?: string;
   fieldErrors?: Record<string, string>;
+  mailGonderildi?: boolean;
+  mailHedef?: string;
+  mailHata?: string;
 };
 
 function parseFormData<T extends z.ZodTypeAny>(
@@ -118,7 +121,12 @@ export async function kullaniciOlusturAction(
   }
 
   revalidatePath("/ekip-uyeleri");
-  return { ok: true };
+  return {
+    ok: true,
+    mailGonderildi: mailSonuc.ok,
+    mailHedef: yeniKullanici.email,
+    mailHata: mailSonuc.ok ? undefined : mailSonuc.error,
+  };
 }
 
 export async function kullaniciGuncelleAction(
