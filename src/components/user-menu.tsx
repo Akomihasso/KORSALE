@@ -2,7 +2,6 @@
 
 import { LogOut, Settings, User } from "lucide-react";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -28,6 +27,23 @@ function bashHarfler(name: string) {
     .slice(0, 2)
     .map((s) => s[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+async function cikis() {
+  try {
+    const r = await fetch("/api/auth/csrf");
+    const { csrfToken } = (await r.json()) as { csrfToken: string };
+    const fd = new FormData();
+    fd.set("csrfToken", csrfToken);
+    fd.set("callbackUrl", "/giris");
+    await fetch("/api/auth/signout", {
+      method: "POST",
+      body: fd,
+      redirect: "manual",
+    });
+  } finally {
+    window.location.href = "/giris";
+  }
 }
 
 export function UserMenu({ name, email, rolEtiketi }: Props) {
@@ -59,7 +75,7 @@ export function UserMenu({ name, email, rolEtiketi }: Props) {
         <DropdownMenuItem
           variant="destructive"
           onClick={() => {
-            void signOut({ callbackUrl: "/giris" });
+            void cikis();
           }}
         >
           <LogOut className="size-4" />
