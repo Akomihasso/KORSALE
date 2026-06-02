@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -57,11 +58,13 @@ export function UserMenu({ name, email, rolEtiketi }: Props) {
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium">{name}</span>
-          <span className="text-xs text-muted-foreground">{email}</span>
-          <span className="text-xs text-muted-foreground">{rolEtiketi}</span>
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">{name}</span>
+            <span className="text-xs text-muted-foreground">{email}</span>
+            <span className="text-xs text-muted-foreground">{rolEtiketi}</span>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link href="/profil" />}>
           <User className="size-4" />
