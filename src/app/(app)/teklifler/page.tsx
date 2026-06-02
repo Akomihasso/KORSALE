@@ -318,7 +318,6 @@ export default async function TekliflerPage({
                 <TableCell>
                   <Link
                     href={`/firmalar/${t.firma.id}`}
-                    onClick={(e) => e.stopPropagation()}
                     className="hover:underline"
                   >
                     {t.firma.ad}

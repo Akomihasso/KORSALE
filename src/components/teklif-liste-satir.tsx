@@ -15,7 +15,10 @@ export function TeklifListeSatir({ teklifId, children }: Props) {
   return (
     <TableRow
       className="cursor-pointer hover:bg-muted/50"
-      onClick={() => router.push(`/teklifler/${teklifId}`)}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("a")) return;
+        router.push(`/teklifler/${teklifId}`);
+      }}
     >
       {children}
     </TableRow>

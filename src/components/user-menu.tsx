@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { LogOut, Settings, User } from "lucide-react";
 import Link from "next/link";
 
@@ -31,41 +32,45 @@ function bashHarfler(name: string) {
 }
 
 export function UserMenu({ name, email, rolEtiketi }: Props) {
+  // Form, dropdown popup'ı kapanırken unmount olmasın diye dışarıda tutuluyor;
+  // menü öğesinin onClick'i requestSubmit ile tetikler.
+  const logoutFormRef = useRef<HTMLFormElement>(null);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={<Button variant="ghost" size="icon-lg" className="rounded-full" />}
-      >
-        <Avatar className="size-8">
-          <AvatarFallback>{bashHarfler(name)}</AvatarFallback>
-        </Avatar>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium">{name}</span>
-          <span className="text-xs text-muted-foreground">{email}</span>
-          <span className="text-xs text-muted-foreground">{rolEtiketi}</span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem render={<Link href="/profil" />}>
-          <User className="size-4" />
-          Profilim
-        </DropdownMenuItem>
-        <DropdownMenuItem render={<Link href="/ayarlar" />}>
-          <Settings className="size-4" />
-          Ayarlar
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <form action={logoutAction}>
+    <>
+      <form ref={logoutFormRef} action={logoutAction} className="hidden" />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon-lg" className="rounded-full" />}
+        >
+          <Avatar className="size-8">
+            <AvatarFallback>{bashHarfler(name)}</AvatarFallback>
+          </Avatar>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">{name}</span>
+            <span className="text-xs text-muted-foreground">{email}</span>
+            <span className="text-xs text-muted-foreground">{rolEtiketi}</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem render={<Link href="/profil" />}>
+            <User className="size-4" />
+            Profilim
+          </DropdownMenuItem>
+          <DropdownMenuItem render={<Link href="/ayarlar" />}>
+            <Settings className="size-4" />
+            Ayarlar
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
-            render={<button type="submit" className="w-full" />}
+            onClick={() => logoutFormRef.current?.requestSubmit()}
           >
             <LogOut className="size-4" />
             Çıkış Yap
           </DropdownMenuItem>
-        </form>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }
