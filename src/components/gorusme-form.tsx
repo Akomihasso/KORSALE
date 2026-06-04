@@ -206,8 +206,9 @@ export function GorusmeForm({ firmalar, varsayilanFirmaId, gorusme }: Props) {
           id="tahminiTutar"
           name="tahminiTutar"
           type="number"
-          step="100"
+          step="any"
           min="0"
+          inputMode="decimal"
           defaultValue={gorusme?.tahminiTutar?.toString() ?? ""}
           placeholder="Pipeline için (opsiyonel)"
         />

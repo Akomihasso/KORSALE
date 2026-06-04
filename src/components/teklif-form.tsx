@@ -216,8 +216,9 @@ export function TeklifForm({
           id="tutar"
           name="tutar"
           type="number"
-          step="100"
+          step="any"
           min="0"
+          inputMode="decimal"
           required
           value={tutar}
           onChange={(e) => setTutar(e.target.value)}
