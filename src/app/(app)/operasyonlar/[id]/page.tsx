@@ -28,6 +28,7 @@ import {
   operasyonSilAction,
   operasyonSorumluDegistirAction,
 } from "@/lib/actions/operasyon-actions";
+import { OperasyonSonDurumFormu } from "@/components/operasyon-son-durum-formu";
 import { DevirDialog } from "@/components/devir-dialog";
 import { SilButon } from "@/components/sil-buton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -203,19 +204,24 @@ export default async function OperasyonDetayPage({ params }: { params: Params })
                 <Progress value={operasyon.ilerlemeYuzde} />
               </div>
 
-              {operasyon.sonDurum && (
-                <>
-                  <Separator />
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Son durum notu
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm">
-                      {operasyon.sonDurum}
-                    </p>
-                  </div>
-                </>
-              )}
+              <Separator />
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Son durum notu
+                </p>
+                {operasyon.sonDurum ? (
+                  <p className="whitespace-pre-wrap text-sm">{operasyon.sonDurum}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    Henüz belirtilmedi
+                  </p>
+                )}
+                <OperasyonSonDurumFormu
+                  operasyonId={operasyon.id}
+                  mevcut={operasyon.sonDurum}
+                  duzenlenebilir={sahip && !gozlemci}
+                />
+              </div>
             </CardContent>
           </Card>
 

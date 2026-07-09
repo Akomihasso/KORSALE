@@ -445,6 +445,36 @@ export async function teklifOdemeAlindiAction(formData: FormData) {
   if (sonuc?.operasyonId) revalidatePath(`/operasyonlar/${sonuc.operasyonId}`);
 }
 
+/**
+ * Teklif "ödeme durumu" serbest metin alanını günceller (ödeme planı bekleniyor,
+ * faturadan sonra ödenecek vb.). "Para alındı" işlemi ayrı — bu alan sadece bilgi amaçlı.
+ * Yetki: yönetici veya sorumlu, KABUL veya GONDERILDI/BEKLEMEDE durumlarında.
+ */
+export async function teklifOdemeDurumuAction(formData: FormData) {
+  const user = await requireAuth();
+  const id = String(formData.get("id") ?? "");
+  const odemeDurumuRaw = String(formData.get("odemeDurumu") ?? "").trim();
+  if (!id || user.role === UserRole.GOZLEMCI) return;
+
+  const teklif = await prisma.teklif.findUnique({
+    where: { id },
+    select: { durum: true, sorumluId: true, firmaId: true },
+  });
+  if (!teklif) return;
+  if (user.role !== UserRole.YONETICI && teklif.sorumluId !== user.id) return;
+
+  await prisma.teklif.update({
+    where: { id },
+    data: {
+      odemeDurumu: odemeDurumuRaw.length > 0 ? odemeDurumuRaw.slice(0, 200) : null,
+    },
+  });
+
+  revalidatePath("/teklifler");
+  revalidatePath(`/teklifler/${id}`);
+  revalidatePath(`/firmalar/${teklif.firmaId}`);
+}
+
 export async function teklifIptalAction(formData: FormData) {
   const user = await requireAuth();
   const id = String(formData.get("id") ?? "");

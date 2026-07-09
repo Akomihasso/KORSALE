@@ -7,8 +7,8 @@ import { toast } from "sonner";
 import { sifreDegistirAction } from "@/lib/actions/profil-actions";
 import type { ActionState } from "@/lib/actions/_shared";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 
 const initialState: ActionState = { ok: false };
 
@@ -32,10 +32,9 @@ export function SifreDegistirForm() {
         <Label htmlFor="mevcutSifre">
           Mevcut şifre <span className="text-destructive">*</span>
         </Label>
-        <Input
+        <PasswordInput
           id="mevcutSifre"
           name="mevcutSifre"
-          type="password"
           autoComplete="current-password"
           required
         />
@@ -49,10 +48,9 @@ export function SifreDegistirForm() {
           <Label htmlFor="yeniSifre">
             Yeni şifre <span className="text-destructive">*</span>
           </Label>
-          <Input
+          <PasswordInput
             id="yeniSifre"
             name="yeniSifre"
-            type="password"
             autoComplete="new-password"
             minLength={8}
             required
@@ -65,10 +63,9 @@ export function SifreDegistirForm() {
           <Label htmlFor="yeniSifreTekrar">
             Yeni şifre (tekrar) <span className="text-destructive">*</span>
           </Label>
-          <Input
+          <PasswordInput
             id="yeniSifreTekrar"
             name="yeniSifreTekrar"
-            type="password"
             autoComplete="new-password"
             minLength={8}
             required

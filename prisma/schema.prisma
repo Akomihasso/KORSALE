@@ -47,6 +47,26 @@ model User {
   notlar      Not[]
   bildirimler Bildirim[]
   dokumanlar  Dokuman[]
+
+  sifreSifirlamaTokenlari SifreSifirlamaToken[]
+}
+
+// ============ ŞİFRE SIFIRLAMA ============
+
+// Şifremi unuttum akışında üretilen tek kullanımlık token.
+// tokenHash = SHA-256(raw_token). Sadece hash saklanır, raw token e-postaya gider.
+model SifreSifirlamaToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // ============ FİRMA & KİŞİ ============
@@ -194,6 +214,8 @@ model Teklif {
   // Müşteri kabul ettikten sonra ödeme tahsil edildiğinde dolar
   odemeAlindiTar  DateTime?
   odemeAlanId     String? // ödemeyi kim teyit etti
+  // Ek ödeme durumu (ödeme planı bekleniyor, faturadan sonra ödenecek vb.) — serbest metin
+  odemeDurumu     String?
   redNedeni       String?
   redKategorisi   TeklifRedKategori?
   createdAt       DateTime   @default(now())

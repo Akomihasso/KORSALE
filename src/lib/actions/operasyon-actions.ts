@@ -69,6 +69,32 @@ export async function operasyonSorumluDegistirAction(formData: FormData) {
   revalidatePath(`/operasyonlar/${id}`);
 }
 
+/**
+ * Operasyon "son durum" serbest metin alanını günceller. Boş gönderilirse temizler.
+ * Yetki: yönetici veya sorumlu.
+ */
+export async function operasyonSonDurumDegistirAction(formData: FormData) {
+  const user = await requireAuth();
+  const id = String(formData.get("id") ?? "");
+  const sonDurumRaw = String(formData.get("sonDurum") ?? "").trim();
+  if (!id || user.role === UserRole.GOZLEMCI) return;
+
+  const op = await prisma.operasyon.findUnique({
+    where: { id },
+    select: { sorumluId: true },
+  });
+  if (!op) return;
+  if (user.role !== UserRole.YONETICI && op.sorumluId !== user.id) return;
+
+  await prisma.operasyon.update({
+    where: { id },
+    data: { sonDurum: sonDurumRaw.length > 0 ? sonDurumRaw.slice(0, 500) : null },
+  });
+
+  revalidatePath("/operasyonlar");
+  revalidatePath(`/operasyonlar/${id}`);
+}
+
 /** Kategori (MARKA/PATENT/...) güncelle — yönetici veya sorumlu. */
 export async function operasyonKategoriDegistirAction(formData: FormData) {
   const user = await requireAuth();

@@ -126,6 +126,17 @@ export const BELGE_DURUM_ETIKET: Record<BelgeDurum, string> = {
   SURESI_DOLDU: "Süresi doldu",
 };
 
+// Teklif ödeme durumu için hazır etiketler. "Para alındı" akışı ayrı — bu alan,
+// müşteriden farklı ödeme senaryolarını (plan bekleniyor, fatura sonrası vb.) izlemek için.
+export const TEKLIF_ODEME_DURUM_SECENEKLERI = [
+  "Ödeme alındı",
+  "Ödeme planı bekleniyor",
+  "Faturadan sonra ödenecek",
+  "Kısmi ödeme alındı",
+  "Ödeme ertelendi",
+  "Ödeme iptal edildi",
+] as const;
+
 export const TEKLIF_RED_KATEGORI_ETIKET: Record<TeklifRedKategori, string> = {
   USTMAKAM_ONAY: "Üst makam onayı bekliyor",
   DUSUNUYOR: "Düşünüyor",
@@ -252,6 +263,17 @@ export const OPERASYON_DURUM_ETIKET: Record<OperasyonDurum, string> = {
   TAMAMLANDI: "Tamamlandı",
   IPTAL: "İptal",
 };
+
+// Operasyonun serbest metin "son durum" alanına atanabilecek hazır seçenekler.
+// UI'da dropdown olarak gösterilir; kullanıcı isterse "Özel..." seçip serbest metin de yazabilir.
+export const OPERASYON_SON_DURUM_SECENEKLERI = [
+  "Operasyon devam ediyor",
+  "Bilgi-belge bekleniyor",
+  "Müşteri onayı bekleniyor",
+  "Kurum cevabı bekleniyor",
+  "Ödeme bekleniyor",
+  "Askıya alındı",
+] as const;
 
 export const OPERASYON_KATEGORI_ETIKET: Record<OperasyonKategori, string> = {
   MARKA: "Marka",

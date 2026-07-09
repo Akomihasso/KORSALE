@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -7,6 +8,7 @@ import { loginAction, type LoginState } from "@/lib/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const initialState: LoginState = {};
@@ -30,11 +32,18 @@ export function LoginForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Şifre</Label>
-        <Input
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Şifre</Label>
+          <Link
+            href="/sifre-sifirla"
+            className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+          >
+            Şifremi unuttum
+          </Link>
+        </div>
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           required
           autoComplete="current-password"
         />

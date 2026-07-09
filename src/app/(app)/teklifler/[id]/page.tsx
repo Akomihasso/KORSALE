@@ -46,6 +46,7 @@ import {
 } from "@/lib/actions/teklif-actions";
 import { DevirDialog } from "@/components/devir-dialog";
 import { SilButon } from "@/components/sil-buton";
+import { TeklifOdemeDurumuFormu } from "@/components/teklif-odeme-durumu-formu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -307,6 +308,12 @@ export default async function TeklifDetayPage({ params }: { params: Params }) {
                     )}
                   </div>
                 )}
+                {teklif.odemeDurumu && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Ödeme durumu</p>
+                    <p className="text-base font-medium">{teklif.odemeDurumu}</p>
+                  </div>
+                )}
               </div>
 
               {teklif.durum === "REDDEDILDI" && (
@@ -418,6 +425,18 @@ export default async function TeklifDetayPage({ params }: { params: Params }) {
                     <Wallet className="size-4" /> Para alındı
                   </Button>
                 </form>
+              )}
+
+              {(teklif.durum === "KABUL" ||
+                teklif.durum === "GONDERILDI" ||
+                teklif.durum === "BEKLEMEDE") && (
+                <div className="w-full">
+                  <TeklifOdemeDurumuFormu
+                    teklifId={teklif.id}
+                    mevcut={teklif.odemeDurumu}
+                    duzenlenebilir={sahip && !gozlemci}
+                  />
+                </div>
               )}
 
               {iptalEdilebilir && teklif.durum !== "TASLAK" && (

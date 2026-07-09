@@ -131,3 +131,37 @@
     @apply font-sans;
   }
 }
+
+/* Global tıklama geri bildirimi ----------------------------------------- */
+
+/* RouteProgress: üstteki ince ilerleme çubuğu için soldan sağa dolan animasyon */
+@keyframes route-progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(-30%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+.route-progress-bar {
+  animation: route-progress-slide 1.2s ease-out forwards;
+}
+
+/*
+ * Tıklandığında "beklemede" görünümüne geçen link/buton. RouteProgress bileşeni
+ * data-mesgul atadıktan sonra kullanıcı gezinme tamamlanana kadar renk değişimi
+ * ve waiting cursor'ı görür — çift tıklamayı engellemez ama görsel geri bildirim verir.
+ */
+[data-mesgul="true"] {
+  opacity: 0.65;
+  cursor: progress !important;
+  filter: saturate(0.85);
+  transition: opacity 120ms ease, filter 120ms ease;
+}
+
+/* Bir form gönderilirken içerdeki submit butonunda basit spinner işaretini
+ * belli etmek yerine, RouteProgress zaten üstteki barı gösteriyor. Ek olarak
+ * pointer'ı wait yapıyoruz. */

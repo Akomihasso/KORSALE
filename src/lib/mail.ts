@@ -131,6 +131,85 @@ export async function davetMailiGonder(args: DavetMailiArgs) {
   });
 }
 
+type SifreSifirlamaMailiArgs = {
+  ad: string;
+  email: string;
+  link: string;
+  gecerlilikDakika: number;
+};
+
+export async function sifreSifirlamaMailiGonder(args: SifreSifirlamaMailiArgs) {
+  const { ad, email, link, gecerlilikDakika } = args;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="tr">
+  <body style="margin:0;padding:0;background:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,0.06);">
+            <tr>
+              <td style="padding:32px 40px 16px;">
+                <div style="font-size:13px;letter-spacing:0.12em;color:#475569;font-weight:600;">KORSALE</div>
+                <h1 style="margin:12px 0 0;font-size:22px;font-weight:700;color:#0f172a;">Şifre sıfırlama talebi</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 40px 16px;font-size:15px;line-height:1.6;color:#334155;">
+                Merhaba ${escapeHtml(ad)},<br /><br />
+                KORSALE hesabınız için bir şifre sıfırlama talebi aldık. Aşağıdaki bağlantıya tıklayarak yeni şifrenizi belirleyebilirsiniz. Bu bağlantı <strong>${gecerlilikDakika} dakika</strong> geçerlidir.
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:8px 40px 24px;">
+                <a href="${escapeAttr(link)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:10px;">Yeni şifre belirle</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 40px 8px;font-size:12px;line-height:1.6;color:#64748b;">
+                Bağlantı çalışmıyorsa şu adresi tarayıcınıza yapıştırın:
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 40px 24px;font-size:12px;line-height:1.6;color:#0f172a;word-break:break-all;">
+                <code style="background:#f8fafc;padding:2px 6px;border-radius:4px;border:1px solid #e2e8f0;">${escapeHtml(link)}</code>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 40px 32px;font-size:13px;line-height:1.6;color:#64748b;">
+                Bu talebi siz yapmadıysanız bu e-postayı yok sayabilirsiniz — hesabınız güvende kalır. Herhangi bir şüpheniz varsa yöneticinizle iletişime geçin.
+              </td>
+            </tr>
+          </table>
+          <div style="font-size:12px;color:#94a3b8;margin-top:16px;">KORSALE · Kordinat Marka Patent</div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`.trim();
+
+  const text = [
+    `Merhaba ${ad},`,
+    "",
+    "KORSALE hesabınız için şifre sıfırlama talebi aldık.",
+    `Aşağıdaki bağlantı ${gecerlilikDakika} dakika geçerlidir:`,
+    "",
+    link,
+    "",
+    "Bu talebi siz yapmadıysanız bu e-postayı yok sayabilirsiniz.",
+    "",
+    "KORSALE · Kordinat Marka Patent",
+  ].join("\n");
+
+  return mailGonder({
+    to: { email, name: ad },
+    subject: "KORSALE — Şifre sıfırlama bağlantınız",
+    html,
+    text,
+  });
+}
+
 function escapeHtml(s: string) {
   return s
     .replace(/&/g, "&amp;")
