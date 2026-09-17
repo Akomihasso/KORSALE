@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
-import { dokumanYukle, dokumanSil, urldenPath } from "@/lib/supabase-storage";
+import { dokumanYukle, dokumanSil, urldenPath } from "@/lib/storage";
 import { DokumanKategori, UserRole } from "@prisma/client";
 import { parseFormData, type ActionState } from "./_shared";
 
