@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apk add --no-cache openssl
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci
+RUN npm ci --include=dev
 
 # --- builder ---
 FROM node:22-alpine AS builder
