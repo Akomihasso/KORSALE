@@ -24,6 +24,7 @@ function panelUrl() {
   const url =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.APP_URL ||
+    process.env.NEXTAUTH_URL ||
     "http://localhost:3000";
   return url.replace(/\/$/, "");
 }
