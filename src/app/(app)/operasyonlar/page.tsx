@@ -37,8 +37,10 @@ export const metadata = { title: "Operasyonlar" };
 
 const SAYFA_BOYUTU = 20;
 
-// "aktif" = BEKLIYOR + DEVAM_EDIYOR + ASKIDA (dashboard "Aktif operasyon" KPI'ı ile aynı set)
-type DurumFiltresi = OperasyonDurum | "aktif";
+// Meta-değerler:
+// "aktif"   = BEKLIYOR + DEVAM_EDIYOR + ASKIDA (dashboard "Aktif operasyon" KPI'ı ile aynı set)
+// "islemde" = DEVAM_EDIYOR + ASKIDA           (funnel "işlemde" dilimi için — bekleyen hariç)
+type DurumFiltresi = OperasyonDurum | "aktif" | "islemde";
 
 type SearchParams = Promise<{
   kategori?: OperasyonKategori;
@@ -62,6 +64,8 @@ const AKTIF_OPERASYON_DURUMLARI: OperasyonDurum[] = [
   "ASKIDA",
 ];
 
+const ISLEMDE_OPERASYON_DURUMLARI: OperasyonDurum[] = ["DEVAM_EDIYOR", "ASKIDA"];
+
 const DURUM_LISTE: OperasyonDurum[] = [
   "BEKLIYOR",
   "DEVAM_EDIYOR",
@@ -73,6 +77,7 @@ const DURUM_LISTE: OperasyonDurum[] = [
 function normalizeDurum(v: string | undefined): DurumFiltresi | undefined {
   if (!v) return undefined;
   if (v === "aktif") return "aktif";
+  if (v === "islemde") return "islemde";
   if (DURUM_LISTE.includes(v as OperasyonDurum)) return v as OperasyonDurum;
   return undefined;
 }
@@ -80,6 +85,7 @@ function normalizeDurum(v: string | undefined): DurumFiltresi | undefined {
 function durumWhere(d: DurumFiltresi | undefined): Prisma.OperasyonWhereInput {
   if (!d) return {};
   if (d === "aktif") return { durum: { in: AKTIF_OPERASYON_DURUMLARI } };
+  if (d === "islemde") return { durum: { in: ISLEMDE_OPERASYON_DURUMLARI } };
   return { durum: d };
 }
 
