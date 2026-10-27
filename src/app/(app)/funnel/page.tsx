@@ -207,7 +207,7 @@ export default async function FunnelPage({
     tutar: teklifToplamCiro || null,
     ustOran: wTeklif * TEKLIF_DARALT,
     altOran: wOperasyon * TEKLIF_DARALT,
-    yukseklik: Math.round(130 * 1.25), // %25 daha yüksek
+    yukseklik: Math.round(130 * 1.25 * 1.1), // %25 + ek %10 etek uzatma = toplam ~%37.5
     renk: "#c2410c", // orange-700
     href: `/teklifler${soloEki(aktifAralik)}`,
     dilimler: [
