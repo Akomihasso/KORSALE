@@ -311,8 +311,8 @@ export default async function TekliflerPage({
               <TableHead>Tip</TableHead>
               <TableHead>Başlık</TableHead>
               <TableHead>Firma</TableHead>
-              <TableHead>Durum</TableHead>
               <TableHead>Sorumlu</TableHead>
+              <TableHead>Durum</TableHead>
               <TableHead className="text-right">Net</TableHead>
               <TableHead className="text-right">Olasılık</TableHead>
               <TableHead className="text-right">Tarih</TableHead>
@@ -351,7 +351,7 @@ export default async function TekliflerPage({
                 <TableCell className="max-w-xs">
                   <span className="block truncate font-medium">{t.baslik}</span>
                 </TableCell>
-                <TableCell>
+                <TableCell className="max-w-[180px] truncate">
                   <Link
                     href={`/firmalar/${t.firma.id}`}
                     className="hover:underline"
@@ -359,13 +359,13 @@ export default async function TekliflerPage({
                     {t.firma.ad}
                   </Link>
                 </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {t.sorumlu.name}
+                </TableCell>
                 <TableCell>
                   <Badge variant={teklifAsamaRengi(asama)} className={gorunum.sinif}>
                     {TEKLIF_ASAMA_ETIKET[asama]}
                   </Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {t.sorumlu.name}
                 </TableCell>
                 <TableCell className="text-right text-xs font-medium">
                   {trTutar(t.netTutar, t.paraBirimi)}

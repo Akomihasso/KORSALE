@@ -10,7 +10,7 @@ import {
   GORUSME_TIPI_ETIKET,
   gorusmeDurumRengi,
   gorusmeSonucRengi,
-  trTarihSaat,
+  trTarih,
   trTutar,
 } from "@/lib/format";
 import { FirmaArama } from "@/components/firma-arama";
@@ -209,10 +209,10 @@ export default async function GorusmelerPage({
               <TableHead>Tarih</TableHead>
               <TableHead>Firma</TableHead>
               <TableHead>Konu</TableHead>
-              <TableHead>Tip</TableHead>
+              <TableHead>Sorumlu</TableHead>
               <TableHead>Sonuç</TableHead>
               <TableHead>Durum</TableHead>
-              <TableHead>Sorumlu</TableHead>
+              <TableHead>Tip</TableHead>
               <TableHead className="text-right">Tahmini</TableHead>
             </TableRow>
           </TableHeader>
@@ -233,12 +233,12 @@ export default async function GorusmelerPage({
             )}
             {gorusmeler.map((g) => (
               <TableRow key={g.id} className="cursor-pointer hover:bg-muted/50">
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                   <Link href={`/gorusmeler/${g.id}`} className="block">
-                    {trTarihSaat(g.tarih)}
+                    {trTarih(g.tarih)}
                   </Link>
                 </TableCell>
-                <TableCell>
+                <TableCell className="max-w-[180px] truncate">
                   <Link
                     href={`/firmalar/${g.firma.id}`}
                     className="hover:underline"
@@ -246,7 +246,7 @@ export default async function GorusmelerPage({
                     {g.firma.ad}
                   </Link>
                 </TableCell>
-                <TableCell className="max-w-xs">
+                <TableCell className="max-w-[240px]">
                   <Link
                     href={`/gorusmeler/${g.id}`}
                     className="block truncate font-medium hover:underline"
@@ -255,7 +255,7 @@ export default async function GorusmelerPage({
                   </Link>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  {GORUSME_TIPI_ETIKET[g.tip]}
+                  {g.sorumlu.name}
                 </TableCell>
                 <TableCell>
                   <Badge variant={gorusmeSonucRengi(g.sonuc)}>
@@ -268,7 +268,7 @@ export default async function GorusmelerPage({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  {g.sorumlu.name}
+                  {GORUSME_TIPI_ETIKET[g.tip]}
                 </TableCell>
                 <TableCell className="text-right text-xs">
                   {trTutar(g.tahminiTutar)}
