@@ -1,11 +1,15 @@
 import Link from "next/link";
 import {
-  ArrowRight,
+  ArrowDown,
   CheckCircle2,
   ClipboardList,
+  Clock,
+  CircleCheck,
   FileText,
+  Hourglass,
   MessageSquare,
-  Send,
+  Pause,
+  Wallet,
 } from "lucide-react";
 
 import { requireAuth } from "@/lib/auth-helpers";
@@ -26,22 +30,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const metadata = { title: "Funnel" };
 
 type SearchParams = Promise<{ aralik?: string }>;
 
-const KATMAN_RENK = [
-  "fill-sky-300 dark:fill-sky-400/80",
-  "fill-sky-400 dark:fill-sky-500/80",
-  "fill-sky-500 dark:fill-sky-600/80",
-  "fill-emerald-500 dark:fill-emerald-600/80",
-  "fill-emerald-600 dark:fill-emerald-700/80",
-];
-
 function buildHref(aralik: Aralik) {
   return aralik === "AY" ? "/funnel" : `/funnel?aralik=${aralik}`;
+}
+
+function aralikParametresi(aralik: Aralik): string {
+  return aralik === "AY" ? "" : `&aralik=${aralik}`;
 }
 
 export default async function FunnelPage({
@@ -54,126 +55,133 @@ export default async function FunnelPage({
   const aktifAralik: Aralik = normalizeAralik(aralik);
   const baslangic = aralikBaslangic(aktifAralik);
 
+  // Her metrik kendi tarih kolonundan filtrelenir — dashboard ile birebir uyumlu.
   const tarihGorusme = baslangic ? { tarih: { gte: baslangic } } : {};
-  const tarihTeklif = baslangic ? { createdAt: { gte: baslangic } } : {};
+  const tarihCreated = baslangic ? { createdAt: { gte: baslangic } } : {};
+  const tarihKabul = baslangic ? { kabulTar: { gte: baslangic } } : {};
+  const tarihOdeme = baslangic ? { odemeAlindiTar: { gte: baslangic } } : {};
 
   const [
+    // Görüşme katmanı
     gorusmeSayisi,
-    gorusmeTahminToplam,
-    teklifSayisi,
-    teklifNetGruplar,
-    cevapBekleyenSayisi,
-    cevapBekleyenGruplar,
-    kabulSayisi,
-    kabulGruplar,
-    operasyonSayisi,
-    aktifOperasyonSayisi,
+    gorusmeTahminAgg,
+    // Teklif ana + iç dilimler
+    teklifToplamSayisi,
+    teklifToplamGruplar,
+    teklifOnayBekleyenSayisi,
+    teklifOnayBekleyenGruplar,
+    teklifOdemeBekleyenSayisi,
+    teklifOdemeBekleyenGruplar,
+    teklifParaAlindiSayisi,
+    teklifParaAlindiGruplar,
+    // Operasyon ana + iç dilimler
+    operasyonToplamSayisi,
+    operasyonBekleyenSayisi,
+    operasyonIslemdeSayisi,
+    operasyonTamamlandiSayisi,
     kurlar,
   ] = await Promise.all([
+    // Görüşme
     prisma.gorusme.count({ where: tarihGorusme }),
     prisma.gorusme.aggregate({
       _sum: { tahminiTutar: true },
       where: tarihGorusme,
     }),
-    prisma.teklif.count({ where: tarihTeklif }),
+
+    // Teklif — toplam (dönem içinde oluşturulanlar)
+    prisma.teklif.count({ where: tarihCreated }),
     prisma.teklif.groupBy({
       by: ["paraBirimi"],
       _sum: { netTutar: true },
-      where: tarihTeklif,
+      where: tarihCreated,
     }),
+
+    // Teklif — Onay bekleyen (müşteriye gönderildi, karar yok)
     prisma.teklif.count({
-      where: { durum: { in: ["GONDERILDI", "BEKLEMEDE"] }, ...tarihTeklif },
+      where: { durum: { in: ["GONDERILDI", "BEKLEMEDE"] }, ...tarihCreated },
     }),
     prisma.teklif.groupBy({
       by: ["paraBirimi"],
       _sum: { netTutar: true },
-      where: { durum: { in: ["GONDERILDI", "BEKLEMEDE"] }, ...tarihTeklif },
+      where: { durum: { in: ["GONDERILDI", "BEKLEMEDE"] }, ...tarihCreated },
     }),
+
+    // Teklif — Onaylanan · Ödeme bekliyor (KABUL + odemeAlindiTar null, kabulTar kolonu)
     prisma.teklif.count({
-      where: {
-        durum: "KABUL",
-        ...(baslangic ? { kabulTar: { gte: baslangic } } : {}),
-      },
+      where: { durum: "KABUL", odemeAlindiTar: null, ...tarihKabul },
     }),
     prisma.teklif.groupBy({
       by: ["paraBirimi"],
       _sum: { netTutar: true },
-      where: {
-        durum: "KABUL",
-        ...(baslangic ? { kabulTar: { gte: baslangic } } : {}),
-      },
+      where: { durum: "KABUL", odemeAlindiTar: null, ...tarihKabul },
+    }),
+
+    // Teklif — Para alındı (KABUL + odemeAlindiTar not null, odemeAlindiTar kolonu)
+    prisma.teklif.count({
+      where: { durum: "KABUL", odemeAlindiTar: { not: null }, ...tarihOdeme },
+    }),
+    prisma.teklif.groupBy({
+      by: ["paraBirimi"],
+      _sum: { netTutar: true },
+      where: { durum: "KABUL", odemeAlindiTar: { not: null }, ...tarihOdeme },
+    }),
+
+    // Operasyon — toplam (dönem içinde açılan)
+    prisma.operasyon.count({ where: tarihCreated }),
+    prisma.operasyon.count({ where: { durum: "BEKLIYOR", ...tarihCreated } }),
+    prisma.operasyon.count({
+      where: { durum: { in: ["DEVAM_EDIYOR", "ASKIDA"] }, ...tarihCreated },
     }),
     prisma.operasyon.count({
-      where: baslangic ? { createdAt: { gte: baslangic } } : undefined,
+      where: { durum: "TAMAMLANDI", ...tarihCreated },
     }),
-    prisma.operasyon.count({
-      where: {
-        durum: { in: ["BEKLIYOR", "DEVAM_EDIYOR", "ASKIDA"] },
-        ...(baslangic ? { createdAt: { gte: baslangic } } : {}),
-      },
-    }),
+
     guncelKurlar(),
   ]);
 
-  const teklifNetToplam = gruplariTlyeTopla(teklifNetGruplar, kurlar);
-  const cevapBekleyenTutar = gruplariTlyeTopla(cevapBekleyenGruplar, kurlar);
-  const kabulTutar = gruplariTlyeTopla(kabulGruplar, kurlar);
+  const teklifToplamCiro = gruplariTlyeTopla(teklifToplamGruplar, kurlar);
+  const teklifOnayBekleyenCiro = gruplariTlyeTopla(
+    teklifOnayBekleyenGruplar,
+    kurlar,
+  );
+  const teklifOdemeBekleyenCiro = gruplariTlyeTopla(
+    teklifOdemeBekleyenGruplar,
+    kurlar,
+  );
+  const teklifParaAlindiCiro = gruplariTlyeTopla(
+    teklifParaAlindiGruplar,
+    kurlar,
+  );
 
-  type Katman = {
-    isim: string;
-    sayi: number;
-    tutar: number | null;
-    aciklama: string;
-    href: string;
-    icon: React.ComponentType<{ className?: string }>;
-  };
+  const gorusmeTahminTutar = Number(gorusmeTahminAgg._sum.tahminiTutar ?? 0);
 
-  const katmanlar: Katman[] = [
-    {
-      isim: "Görüşmeler",
-      sayi: gorusmeSayisi,
-      tutar: Number(gorusmeTahminToplam._sum.tahminiTutar ?? 0) || null,
-      aciklama: "Yapılan tüm görüşmeler (tahmini iş tutarı)",
-      href: "/gorusmeler",
-      icon: MessageSquare,
-    },
-    {
-      isim: "Teklifler",
-      sayi: teklifSayisi,
-      tutar: teklifNetToplam || null,
-      aciklama: "Oluşturulmuş tüm teklifler (TL karşılığı)",
-      href: "/teklifler",
-      icon: FileText,
-    },
-    {
-      isim: "Cevap Bekleyen",
-      sayi: cevapBekleyenSayisi,
-      tutar: cevapBekleyenTutar || null,
-      aciklama: "Müşteriye gönderildi, henüz kararsız",
-      href: "/teklifler?grup=ACIK",
-      icon: Send,
-    },
-    {
-      isim: "Kazanılan (Ciro)",
-      sayi: kabulSayisi,
-      tutar: kabulTutar || null,
-      aciklama: "Kabul edilen teklifler — gerçek ciro (TL)",
-      href: "/teklifler?grup=KAZANILAN",
-      icon: CheckCircle2,
-    },
-    {
-      isim: "Operasyonlar",
-      sayi: operasyonSayisi,
-      tutar: null,
-      aciklama: `${aktifOperasyonSayisi} tanesi devam ediyor`,
-      href: "/operasyonlar",
-      icon: ClipboardList,
-    },
-  ];
+  // Dönüşüm oranları
+  const donusumGorusmeTeklif =
+    gorusmeSayisi > 0
+      ? Math.round((teklifToplamSayisi / gorusmeSayisi) * 100)
+      : null;
+  const donusumTeklifOperasyon =
+    teklifToplamSayisi > 0
+      ? Math.round((operasyonToplamSayisi / teklifToplamSayisi) * 100)
+      : null;
 
-  // En büyük sayıya göre genişlik orantılı
-  const enBuyuk = Math.max(1, ...katmanlar.map((k) => k.sayi));
-  const minOran = 0.18; // en daralan katman bile bu kadar görünür
+  // Teklif "diğer" (reddedilen + iptal + taslak + indirim onay) — toplamın geri kalanı
+  const teklifDigerSayisi = Math.max(
+    0,
+    teklifToplamSayisi -
+      teklifOnayBekleyenSayisi -
+      teklifOdemeBekleyenSayisi -
+      teklifParaAlindiSayisi,
+  );
+  const operasyonDigerSayisi = Math.max(
+    0,
+    operasyonToplamSayisi -
+      operasyonBekleyenSayisi -
+      operasyonIslemdeSayisi -
+      operasyonTamamlandiSayisi,
+  );
+
+  const aralikEki = aralikParametresi(aktifAralik);
 
   return (
     <div className="space-y-6">
@@ -181,7 +189,8 @@ export default async function FunnelPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Funnel</h1>
           <p className="text-sm text-muted-foreground">
-            Satış hunisinin {ARALIK_ETIKET[aktifAralik].toLocaleLowerCase("tr")} görünümü
+            Satış hunisinin{" "}
+            {ARALIK_ETIKET[aktifAralik].toLocaleLowerCase("tr")} görünümü
           </p>
         </div>
         <Tabs value={aktifAralik}>
@@ -195,153 +204,366 @@ export default async function FunnelPage({
         </Tabs>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        {/* SOL — Funnel görsel */}
-        <Card className="lg:col-span-3">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Akış</CardTitle>
-            <CardDescription>
-              Her katman bir önceki adımdan geçen kayıt sayısını gösterir
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FunnelGorsel
-              katmanlar={katmanlar}
-              enBuyuk={enBuyuk}
-              minOran={minOran}
-            />
-          </CardContent>
-        </Card>
+      <div className="mx-auto max-w-3xl space-y-3">
+        {/* GÖRÜŞME katmanı */}
+        <KatmanKarti
+          ustOlcek={1}
+          baslik="Görüşmeler"
+          toplamSayi={gorusmeSayisi}
+          toplamTutar={gorusmeTahminTutar || null}
+          toplamHref={`/gorusmeler${aktifAralik !== "AY" ? `?aralik=${aktifAralik}` : ""}`}
+          icon={MessageSquare}
+          renk="sky"
+          aciklama="Tahmini iş tutarı (TL karşılığı)"
+        />
 
-        {/* SAĞ — Katman detayları */}
-        <div className="space-y-3 lg:col-span-2">
-          {katmanlar.map((k, i) => {
-            const Icon = k.icon;
-            const oran = enBuyuk > 0 ? (k.sayi / enBuyuk) * 100 : 0;
-            const ondanSonra = katmanlar[i + 1];
-            const donusum =
-              ondanSonra && k.sayi > 0
-                ? Math.round((ondanSonra.sayi / k.sayi) * 100)
-                : null;
+        {/* Dönüşüm oku */}
+        <DonusumRozeti
+          enBuyuk={Math.max(gorusmeSayisi, teklifToplamSayisi, 1)}
+          sayi={teklifToplamSayisi}
+          onceki="Görüşme"
+          sonraki="Teklif"
+          oran={donusumGorusmeTeklif}
+        />
 
-            return (
-              <Link key={k.isim} href={k.href} className="block">
-                <Card className="transition-shadow hover:shadow-md">
-                  <CardContent className="space-y-2 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Icon className="size-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{k.isim}</span>
-                      </div>
-                      <span className="text-xl font-semibold tabular-nums">
-                        {k.sayi.toLocaleString("tr-TR")}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">{k.aciklama}</p>
-                    <div className="h-1 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-primary/70"
-                        style={{ width: `${oran}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>
-                        {k.tutar !== null && k.tutar > 0
-                          ? trTutar(k.tutar)
-                          : "—"}
-                      </span>
-                      {donusum !== null && (
-                        <span className="flex items-center gap-1">
-                          <ArrowRight className="size-3" />
-                          {ondanSonra.isim}: %{donusum}
-                        </span>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
+        {/* TEKLİF katmanı — iç dilimli */}
+        <KatmanKarti
+          ustOlcek={
+            Math.max(gorusmeSayisi, teklifToplamSayisi, operasyonToplamSayisi) >
+            0
+              ? teklifToplamSayisi /
+                Math.max(
+                  gorusmeSayisi,
+                  teklifToplamSayisi,
+                  operasyonToplamSayisi,
+                )
+              : 1
+          }
+          baslik="Teklifler"
+          toplamSayi={teklifToplamSayisi}
+          toplamTutar={teklifToplamCiro || null}
+          toplamHref={`/teklifler${aktifAralik !== "AY" ? `?aralik=${aktifAralik}` : ""}`}
+          icon={FileText}
+          renk="indigo"
+          aciklama="Oluşturulmuş tüm teklifler"
+          dilimler={[
+            {
+              etiket: "Onay bekleyen",
+              sayi: teklifOnayBekleyenSayisi,
+              tutar: teklifOnayBekleyenCiro,
+              renk: "bg-sky-500",
+              textRenk: "text-sky-700 dark:text-sky-400",
+              href: `/teklifler?grup=BEKLIYOR${aralikEki}`,
+              icon: Hourglass,
+            },
+            {
+              etiket: "Onaylanan · Ödeme bekliyor",
+              sayi: teklifOdemeBekleyenSayisi,
+              tutar: teklifOdemeBekleyenCiro,
+              renk: "bg-amber-500",
+              textRenk: "text-amber-700 dark:text-amber-400",
+              href: `/teklifler?grup=ONAYLANDI${aralikEki}`,
+              icon: CircleCheck,
+            },
+            {
+              etiket: "Onaylanan · Ödemesi gelen",
+              sayi: teklifParaAlindiSayisi,
+              tutar: teklifParaAlindiCiro,
+              renk: "bg-emerald-500",
+              textRenk: "text-emerald-700 dark:text-emerald-400",
+              href: `/teklifler?grup=PARA_ALINDI${aralikEki}`,
+              icon: Wallet,
+            },
+          ]}
+          digerSayisi={teklifDigerSayisi}
+          digerEtiket="Reddedilen / İptal / Taslak"
+          digerHref={`/teklifler${aktifAralik !== "AY" ? `?aralik=${aktifAralik}` : ""}`}
+        />
+
+        {/* Dönüşüm oku */}
+        <DonusumRozeti
+          enBuyuk={Math.max(teklifToplamSayisi, operasyonToplamSayisi, 1)}
+          sayi={operasyonToplamSayisi}
+          onceki="Teklif"
+          sonraki="Operasyon"
+          oran={donusumTeklifOperasyon}
+        />
+
+        {/* OPERASYON katmanı — iç dilimli */}
+        <KatmanKarti
+          ustOlcek={
+            Math.max(gorusmeSayisi, teklifToplamSayisi, operasyonToplamSayisi) >
+            0
+              ? operasyonToplamSayisi /
+                Math.max(
+                  gorusmeSayisi,
+                  teklifToplamSayisi,
+                  operasyonToplamSayisi,
+                )
+              : 1
+          }
+          baslik="Operasyonlar"
+          toplamSayi={operasyonToplamSayisi}
+          toplamTutar={null}
+          toplamHref={`/operasyonlar${aktifAralik !== "AY" ? `?aralik=${aktifAralik}` : ""}`}
+          icon={ClipboardList}
+          renk="emerald"
+          aciklama="Para gelen tekliflerden açılan dosyalar"
+          dilimler={[
+            {
+              etiket: "Bekleyen",
+              sayi: operasyonBekleyenSayisi,
+              tutar: null,
+              renk: "bg-sky-500",
+              textRenk: "text-sky-700 dark:text-sky-400",
+              href: `/operasyonlar?durum=BEKLIYOR${aralikEki}`,
+              icon: Clock,
+            },
+            {
+              etiket: "İşlemde",
+              sayi: operasyonIslemdeSayisi,
+              tutar: null,
+              renk: "bg-amber-500",
+              textRenk: "text-amber-700 dark:text-amber-400",
+              href: `/operasyonlar?durum=islemde${aralikEki}`,
+              icon: Pause,
+            },
+            {
+              etiket: "Tamamlanan",
+              sayi: operasyonTamamlandiSayisi,
+              tutar: null,
+              renk: "bg-emerald-500",
+              textRenk: "text-emerald-700 dark:text-emerald-400",
+              href: `/operasyonlar?durum=TAMAMLANDI${aralikEki}`,
+              icon: CheckCircle2,
+            },
+          ]}
+          digerSayisi={operasyonDigerSayisi}
+          digerEtiket="İptal"
+          digerHref={`/operasyonlar?durum=IPTAL${aralikEki}`}
+        />
       </div>
     </div>
   );
 }
 
-function FunnelGorsel({
-  katmanlar,
-  enBuyuk,
-  minOran,
-}: {
-  katmanlar: { isim: string; sayi: number; tutar: number | null }[];
-  enBuyuk: number;
-  minOran: number;
-}) {
-  const W = 600;
-  const KATMAN_Y = 88;
-  const ARALIK = 8;
-  const H = katmanlar.length * (KATMAN_Y + ARALIK) - ARALIK;
+// --- yardımcılar -----------------------------------------------------------
 
-  // Her katmanın orantısal genişliği (min 18%, max 100%)
-  const genislikler = katmanlar.map((k) => {
-    const oran = enBuyuk > 0 ? k.sayi / enBuyuk : 0;
-    return Math.max(minOran, oran);
-  });
+type Dilim = {
+  etiket: string;
+  sayi: number;
+  tutar: number | null;
+  renk: string; // tailwind bg sınıfı
+  textRenk: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+function KatmanKarti({
+  ustOlcek,
+  baslik,
+  toplamSayi,
+  toplamTutar,
+  toplamHref,
+  icon: Icon,
+  renk,
+  aciklama,
+  dilimler,
+  digerSayisi,
+  digerEtiket,
+  digerHref,
+}: {
+  ustOlcek: number;
+  baslik: string;
+  toplamSayi: number;
+  toplamTutar: number | null;
+  toplamHref: string;
+  icon: React.ComponentType<{ className?: string }>;
+  renk: "sky" | "indigo" | "emerald";
+  aciklama?: string;
+  dilimler?: Dilim[];
+  digerSayisi?: number;
+  digerEtiket?: string;
+  digerHref?: string;
+}) {
+  // Trapez etkisi için üst genişlik → iki yan padding (katman daraldıkça içeri çeker).
+  const kenarPadding = Math.round((1 - Math.max(0.5, ustOlcek)) * 60);
+
+  const renkSinif: Record<typeof renk, string> = {
+    sky: "border-sky-300/60 bg-sky-50 dark:border-sky-700/40 dark:bg-sky-950/30",
+    indigo:
+      "border-indigo-300/60 bg-indigo-50 dark:border-indigo-700/40 dark:bg-indigo-950/30",
+    emerald:
+      "border-emerald-300/60 bg-emerald-50 dark:border-emerald-700/40 dark:bg-emerald-950/30",
+  };
+
+  const toplam = dilimler
+    ? dilimler.reduce((acc, d) => acc + d.sayi, 0) + (digerSayisi ?? 0)
+    : toplamSayi;
 
   return (
-    <div className="overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="mx-auto block h-auto w-full max-w-2xl"
-        role="img"
-        aria-label="Satış hunisi"
+    <div style={{ paddingLeft: kenarPadding, paddingRight: kenarPadding }}>
+      <Card
+        className={`border-2 shadow-sm transition-shadow hover:shadow-md ${renkSinif[renk]}`}
       >
-        {katmanlar.map((k, i) => {
-          const yTop = i * (KATMAN_Y + ARALIK);
-          const yBot = yTop + KATMAN_Y;
-          const ustGenislik = genislikler[i] * W;
-          const altGenislik =
-            (genislikler[i + 1] !== undefined ? genislikler[i + 1] : genislikler[i] * 0.8) * W;
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-3">
+            <Link href={toplamHref} className="flex items-center gap-2 hover:underline">
+              <Icon className="size-5 text-foreground/70" />
+              <CardTitle className="text-base">{baslik}</CardTitle>
+            </Link>
+            <div className="text-right">
+              <div className="text-2xl font-bold tabular-nums">
+                {toplamSayi.toLocaleString("tr-TR")}
+              </div>
+              {toplamTutar !== null && toplamTutar > 0 && (
+                <div className="text-sm font-medium tabular-nums text-foreground/70">
+                  {trTutar(toplamTutar)}
+                </div>
+              )}
+            </div>
+          </div>
+          {aciklama && (
+            <CardDescription className="text-xs">{aciklama}</CardDescription>
+          )}
+        </CardHeader>
 
-          const x1 = (W - ustGenislik) / 2;
-          const x2 = x1 + ustGenislik;
-          const x3 = (W + altGenislik) / 2;
-          const x4 = (W - altGenislik) / 2;
+        {dilimler && dilimler.length > 0 && (
+          <CardContent className="space-y-2 pt-0">
+            {/* Yığılmış renk çubuk — iç dağılım */}
+            <YigilmisCubuk
+              dilimler={dilimler}
+              digerSayisi={digerSayisi ?? 0}
+              toplam={toplam}
+            />
 
-          const path = `M ${x1} ${yTop} L ${x2} ${yTop} L ${x3} ${yBot} L ${x4} ${yBot} Z`;
+            {/* Her dilim için satır (adet + tutar + href) */}
+            <div className="space-y-1 pt-1">
+              {dilimler.map((d) => {
+                const DIcon = d.icon;
+                const oran =
+                  toplam > 0 ? Math.round((d.sayi / toplam) * 100) : 0;
+                return (
+                  <Link
+                    key={d.etiket}
+                    href={d.href}
+                    className="flex items-center justify-between gap-3 rounded-md border bg-background/70 px-2.5 py-1.5 text-xs transition-colors hover:bg-background"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block size-2 rounded-full ${d.renk}`} />
+                      <DIcon className={`size-3.5 ${d.textRenk}`} />
+                      <span className="font-medium">{d.etiket}</span>
+                      <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                        %{oran}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-3 text-right">
+                      <span className="font-semibold tabular-nums">
+                        {d.sayi.toLocaleString("tr-TR")}
+                      </span>
+                      {d.tutar !== null && d.tutar > 0 && (
+                        <span className="w-28 text-xs text-muted-foreground tabular-nums">
+                          {trTutar(d.tutar)}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
 
-          return (
-            <g key={k.isim}>
-              <path
-                d={path}
-                className={`${KATMAN_RENK[i] ?? KATMAN_RENK[KATMAN_RENK.length - 1]} transition-opacity hover:opacity-90`}
-              />
-              <text
-                x={W / 2}
-                y={yTop + KATMAN_Y / 2 - 8}
-                textAnchor="middle"
-                className="fill-white text-[14px] font-semibold"
-              >
-                {k.isim}
-              </text>
-              <text
-                x={W / 2}
-                y={yTop + KATMAN_Y / 2 + 14}
-                textAnchor="middle"
-                className="fill-white text-[18px] font-bold tabular-nums"
-              >
-                {k.sayi.toLocaleString("tr-TR")}
-                {k.tutar !== null && k.tutar > 0 && (
-                  <tspan className="ml-2 text-[12px] font-medium opacity-90">
-                    {"  ·  "}
-                    {trTutar(k.tutar)}
-                  </tspan>
-                )}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+              {(digerSayisi ?? 0) > 0 && digerEtiket && digerHref && (
+                <Link
+                  href={digerHref}
+                  className="flex items-center justify-between gap-3 rounded-md border bg-background/40 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-background"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block size-2 rounded-full bg-muted-foreground/40" />
+                    <span>{digerEtiket}</span>
+                  </div>
+                  <span className="tabular-nums">
+                    {digerSayisi!.toLocaleString("tr-TR")}
+                  </span>
+                </Link>
+              )}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function YigilmisCubuk({
+  dilimler,
+  digerSayisi,
+  toplam,
+}: {
+  dilimler: Dilim[];
+  digerSayisi: number;
+  toplam: number;
+}) {
+  if (toplam === 0) {
+    return (
+      <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+        <div className="h-full w-0" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
+      {dilimler.map((d) => {
+        const w = (d.sayi / toplam) * 100;
+        if (w === 0) return null;
+        return (
+          <div
+            key={d.etiket}
+            className={d.renk}
+            style={{ width: `${w}%` }}
+            title={`${d.etiket}: ${d.sayi}`}
+          />
+        );
+      })}
+      {digerSayisi > 0 && (
+        <div
+          className="bg-muted-foreground/30"
+          style={{ width: `${(digerSayisi / toplam) * 100}%` }}
+          title={`Diğer: ${digerSayisi}`}
+        />
+      )}
+    </div>
+  );
+}
+
+function DonusumRozeti({
+  enBuyuk,
+  sayi,
+  onceki,
+  sonraki,
+  oran,
+}: {
+  enBuyuk: number;
+  sayi: number;
+  onceki: string;
+  sonraki: string;
+  oran: number | null;
+}) {
+  const genislikOran = enBuyuk > 0 ? sayi / enBuyuk : 0;
+  const kenarPadding = Math.round((1 - Math.max(0.5, genislikOran)) * 60);
+  return (
+    <div
+      className="flex items-center justify-center"
+      style={{ paddingLeft: kenarPadding, paddingRight: kenarPadding }}
+    >
+      <div className="flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-xs shadow-sm">
+        <ArrowDown className="size-3.5 text-muted-foreground" />
+        <span className="text-muted-foreground">
+          {onceki} → {sonraki}
+        </span>
+        <span className="font-semibold">
+          {oran !== null ? `%${oran}` : "—"}
+        </span>
+      </div>
     </div>
   );
 }
