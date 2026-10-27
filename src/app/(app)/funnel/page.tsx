@@ -178,14 +178,15 @@ export default async function FunnelPage({
   const minW = 0.22;
   const wTeklif = Math.max(minW, teklifToplamSayisi / enBuyuk);
   const wOperasyon = Math.max(minW, operasyonToplamSayisi / enBuyuk);
-  const wCikis = Math.max(0.12, wOperasyon * 0.65);
 
   // Zarko'nun kararları (2026-10-27):
-  // - Teklifler trapezi KLASİK yönde (üstü geniş, altı dar — diğerleriyle aynı) +
-  //   genel %20 daha dar + yüksekliği %25 daha fazla.
-  // - Operasyonlar trapezi genel %35 daha dar.
+  // - Teklif ve Operasyon katmanları KENDİ İÇİNDE klasik huni:
+  //   alt kenar = üst kenar × IC_DARALMA (veriden bağımsız — hep üst geniş, alt dar).
+  // - Teklif genişlik × 0.80 (%20 daha dar), yükseklik 130 × 1.25 × 1.10 × 1.10 ≈ 197px.
+  // - Operasyon genişlik × 0.65 (%35 daha dar).
   const TEKLIF_DARALT = 0.8;
   const OPERASYON_DARALT = 0.65;
+  const IC_DARALMA = 0.55; // her katmanın altı üstünden ne kadar dar
 
   const gorusmeKatman: KatmanGeometri = {
     id: "gorusme",
@@ -199,15 +200,16 @@ export default async function FunnelPage({
     href: `/gorusmeler${soloEki(aktifAralik)}`,
   };
 
-  // Teklif KLASİK yön: üst geniş, alt dar (diğer katmanlarla aynı yön)
+  // Teklif: üst = kendi oranı × daraltma, alt = üst × IC_DARALMA (garanti dar)
+  const teklifUst = wTeklif * TEKLIF_DARALT;
   const teklifKatman: KatmanGeometri = {
     id: "teklif",
     baslik: "Teklifler",
     sayi: teklifToplamSayisi,
     tutar: teklifToplamCiro || null,
-    ustOran: wTeklif * TEKLIF_DARALT,
-    altOran: wOperasyon * TEKLIF_DARALT,
-    yukseklik: Math.round(130 * 1.25 * 1.1), // %25 + ek %10 etek uzatma = toplam ~%37.5
+    ustOran: teklifUst,
+    altOran: teklifUst * IC_DARALMA,
+    yukseklik: Math.round(130 * 1.25 * 1.1 * 1.1), // %25 + 2×%10 etek uzatma ≈ ×1.5125
     renk: "#c2410c", // orange-700
     href: `/teklifler${soloEki(aktifAralik)}`,
     dilimler: [
@@ -234,13 +236,14 @@ export default async function FunnelPage({
     ],
   };
 
+  const operasyonUst = wOperasyon * OPERASYON_DARALT;
   const operasyonKatman: KatmanGeometri = {
     id: "operasyon",
     baslik: "Operasyonlar",
     sayi: operasyonToplamSayisi,
     tutar: null,
-    ustOran: wOperasyon * OPERASYON_DARALT,
-    altOran: wCikis * OPERASYON_DARALT,
+    ustOran: operasyonUst,
+    altOran: operasyonUst * IC_DARALMA,
     yukseklik: 130,
     renk: "#15803d",
     href: `/operasyonlar${soloEki(aktifAralik)}`,
