@@ -179,14 +179,23 @@ export default async function FunnelPage({
   const wTeklif = Math.max(minW, teklifToplamSayisi / enBuyuk);
   const wOperasyon = Math.max(minW, operasyonToplamSayisi / enBuyuk);
 
-  // Zarko'nun kararları (2026-10-27):
-  // - Teklif ve Operasyon katmanları KENDİ İÇİNDE klasik huni:
-  //   alt kenar = üst kenar × IC_DARALMA (veriden bağımsız — hep üst geniş, alt dar).
-  // - Teklif genişlik × 0.80 (%20 daha dar), yükseklik 130 × 1.25 × 1.10 × 1.10 ≈ 197px.
-  // - Operasyon genişlik × 0.65 (%35 daha dar).
-  const TEKLIF_DARALT = 0.8;
-  const OPERASYON_DARALT = 0.65;
-  const IC_DARALMA = 0.55; // her katmanın altı üstünden ne kadar dar
+  // Zarko'nun kararları (2026-10-27) — Hiyerarşi GARANTİLİ, veriden bağımsız:
+  // Görüşmeler (üst=1) > Teklifler (Görüşme'nin ~%65'i) > Operasyonlar (Teklif'in ~%65'i).
+  // Her katman klasik huni (üst geniş, alt dar). Katmanlar arası akıcı geçiş:
+  // bir katmanın alt kenarı sonraki katmanın üst kenarına eşit.
+  // Teklif önceki daraltma 0.8'den %40 artırıldı → max 0.95 (Görüşme'nin %95'i).
+  const TEKLIF_DARALT = 1.12; // önceki 0.8'den ×1.4 = %40 artış
+  const OPERASYON_TEKLIF_ORAN = 0.65; // Operasyon üstü, Teklif üstünün en fazla %65'i
+  const OPERASYON_DARALT = 0.65; // veriye göre daraltma
+  const IC_DARALMA = 0.55; // her katmanın altı üstünden ne kadar dar (son katman için)
+
+  // Teklif üstü: veri × %40 artırılmış daraltma, Görüşme'nin %95'ini geçmesin
+  const teklifUst = Math.min(0.95, wTeklif * TEKLIF_DARALT);
+  // Operasyon üstü: veriden ya da Teklif'in %65'inden hangisi küçükse (hiyerarşi garanti)
+  const operasyonUst = Math.min(
+    teklifUst * OPERASYON_TEKLIF_ORAN,
+    wOperasyon * OPERASYON_DARALT,
+  );
 
   const gorusmeKatman: KatmanGeometri = {
     id: "gorusme",
@@ -194,22 +203,20 @@ export default async function FunnelPage({
     sayi: gorusmeSayisi,
     tutar: gorusmeTahminTutar || null,
     ustOran: 1,
-    altOran: wTeklif,
+    altOran: teklifUst, // Teklif'in üstüne akıcı geçiş
     yukseklik: 130,
     renk: "#0ea5e9", // sky-500
     href: `/gorusmeler${soloEki(aktifAralik)}`,
   };
 
-  // Teklif: üst = kendi oranı × daraltma, alt = üst × IC_DARALMA (garanti dar)
-  const teklifUst = wTeklif * TEKLIF_DARALT;
   const teklifKatman: KatmanGeometri = {
     id: "teklif",
     baslik: "Teklifler",
     sayi: teklifToplamSayisi,
     tutar: teklifToplamCiro || null,
     ustOran: teklifUst,
-    altOran: teklifUst * IC_DARALMA,
-    yukseklik: Math.round(130 * 1.25 * 1.1 * 1.1), // %25 + 2×%10 etek uzatma ≈ ×1.5125
+    altOran: operasyonUst, // Operasyon'un üstüne akıcı geçiş (hiyerarşi gereği zaten dar)
+    yukseklik: Math.round(130 * 1.25 * 1.1 * 1.1), // %25 + 2×%10 etek uzatma ≈ 197px
     renk: "#c2410c", // orange-700
     href: `/teklifler${soloEki(aktifAralik)}`,
     dilimler: [
@@ -236,7 +243,6 @@ export default async function FunnelPage({
     ],
   };
 
-  const operasyonUst = wOperasyon * OPERASYON_DARALT;
   const operasyonKatman: KatmanGeometri = {
     id: "operasyon",
     baslik: "Operasyonlar",
