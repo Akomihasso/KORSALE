@@ -181,8 +181,9 @@ export default async function FunnelPage({
   const wCikis = Math.max(0.12, wOperasyon * 0.65);
 
   // Zarko'nun kararları (2026-10-27):
-  // - Teklifler trapezi TERS (üstü dar, altı geniş) + genel %20 daha dar + yüksekliği %25 daha fazla
-  // - Operasyonlar trapezi genel %35 daha dar
+  // - Teklifler trapezi KLASİK yönde (üstü geniş, altı dar — diğerleriyle aynı) +
+  //   genel %20 daha dar + yüksekliği %25 daha fazla.
+  // - Operasyonlar trapezi genel %35 daha dar.
   const TEKLIF_DARALT = 0.8;
   const OPERASYON_DARALT = 0.65;
 
@@ -198,14 +199,14 @@ export default async function FunnelPage({
     href: `/gorusmeler${soloEki(aktifAralik)}`,
   };
 
-  // Teklif TERS: üst = normal alt, alt = normal üst
+  // Teklif KLASİK yön: üst geniş, alt dar (diğer katmanlarla aynı yön)
   const teklifKatman: KatmanGeometri = {
     id: "teklif",
     baslik: "Teklifler",
     sayi: teklifToplamSayisi,
     tutar: teklifToplamCiro || null,
-    ustOran: wOperasyon * TEKLIF_DARALT,
-    altOran: wTeklif * TEKLIF_DARALT,
+    ustOran: wTeklif * TEKLIF_DARALT,
+    altOran: wOperasyon * TEKLIF_DARALT,
     yukseklik: Math.round(130 * 1.25), // %25 daha yüksek
     renk: "#c2410c", // orange-700
     href: `/teklifler${soloEki(aktifAralik)}`,
