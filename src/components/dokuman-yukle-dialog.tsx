@@ -36,6 +36,7 @@ export function DokumanYukleDialog({ kategori, kategoriEtiket }: Props) {
   useEffect(() => {
     if (state.ok) {
       toast.success("Doküman yüklendi");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false);
     }
   }, [state.ok]);

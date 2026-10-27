@@ -37,9 +37,12 @@ export const metadata = { title: "Operasyonlar" };
 
 const SAYFA_BOYUTU = 20;
 
+// "aktif" = BEKLIYOR + DEVAM_EDIYOR + ASKIDA (dashboard "Aktif operasyon" KPI'ı ile aynı set)
+type DurumFiltresi = OperasyonDurum | "aktif";
+
 type SearchParams = Promise<{
   kategori?: OperasyonKategori;
-  durum?: OperasyonDurum;
+  durum?: string;
   aralik?: string;
   q?: string;
   sayfa?: string;
@@ -53,6 +56,12 @@ const KATEGORI_LISTE: OperasyonKategori[] = [
   "DIGER",
 ];
 
+const AKTIF_OPERASYON_DURUMLARI: OperasyonDurum[] = [
+  "BEKLIYOR",
+  "DEVAM_EDIYOR",
+  "ASKIDA",
+];
+
 const DURUM_LISTE: OperasyonDurum[] = [
   "BEKLIYOR",
   "DEVAM_EDIYOR",
@@ -60,6 +69,19 @@ const DURUM_LISTE: OperasyonDurum[] = [
   "TAMAMLANDI",
   "IPTAL",
 ];
+
+function normalizeDurum(v: string | undefined): DurumFiltresi | undefined {
+  if (!v) return undefined;
+  if (v === "aktif") return "aktif";
+  if (DURUM_LISTE.includes(v as OperasyonDurum)) return v as OperasyonDurum;
+  return undefined;
+}
+
+function durumWhere(d: DurumFiltresi | undefined): Prisma.OperasyonWhereInput {
+  if (!d) return {};
+  if (d === "aktif") return { durum: { in: AKTIF_OPERASYON_DURUMLARI } };
+  return { durum: d };
+}
 
 function buildHref(params: Record<string, string | undefined>) {
   const sp = new URLSearchParams();
@@ -76,14 +98,15 @@ export default async function OperasyonlarPage({
   searchParams: SearchParams;
 }) {
   await requireAuth();
-  const { kategori, durum, aralik, q, sayfa: sayfaParam } = await searchParams;
+  const { kategori, durum: durumParam, aralik, q, sayfa: sayfaParam } = await searchParams;
   const sayfa = Math.max(1, Number(sayfaParam) || 1);
   const aktifAralik: Aralik = normalizeAralik(aralik);
   const baslangic = aralikBaslangic(aktifAralik);
+  const durum = normalizeDurum(durumParam);
 
   const where: Prisma.OperasyonWhereInput = {
     ...(kategori ? { kategori } : {}),
-    ...(durum ? { durum } : {}),
+    ...durumWhere(durum),
     ...(baslangic ? { createdAt: { gte: baslangic } } : {}),
     ...(q
       ? {
@@ -213,6 +236,12 @@ export default async function OperasyonlarPage({
           className={`text-xs rounded-md border px-2.5 py-1 transition-colors ${!durum ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
         >
           Tüm durumlar
+        </Link>
+        <Link
+          href={buildHref({ kategori, q, durum: "aktif", aralik: aktifAralik })}
+          className={`text-xs rounded-md border px-2.5 py-1 transition-colors ${durum === "aktif" ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
+        >
+          Aktif
         </Link>
         {DURUM_LISTE.map((d) => (
           <Link

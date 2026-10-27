@@ -44,7 +44,7 @@ export const metadata = {
 
 type SearchParams = Promise<{ aralik?: string }>;
 
-const CEVAP_BEKLEYEN_TEKLIF_DURUMLARI: BelgeDurum[] = ["GONDERILDI", "BEKLEMEDE"];
+const ONAY_BEKLEYEN_TEKLIF_DURUMLARI: BelgeDurum[] = ["GONDERILDI", "BEKLEMEDE"];
 const AKTIF_OPERASYON_DURUMLARI: OperasyonDurum[] = [
   "BEKLIYOR",
   "DEVAM_EDIYOR",
@@ -69,9 +69,13 @@ export default async function GenelDurumPage({
   const [
     gorusmeSayisi,
     teklifSayisi,
-    tahminiGelirGruplar,
-    onaylandiOdemeBekliyorGruplar,
-    tahsilEdilenGruplar,
+    teklifCiroGruplar,
+    onayBekleyenSayisi,
+    onayBekleyenGruplar,
+    odemeBekleyenSayisi,
+    odemeBekleyenGruplar,
+    odemesiGelenSayisi,
+    odemesiGelenGruplar,
     aktifOperasyonSayisi,
     askidakiSayisi,
     indirimOnayBekleyenSayisi,
@@ -88,20 +92,41 @@ export default async function GenelDurumPage({
     prisma.gorusme.count({
       where: tarihFiltresi ? { tarih: tarihFiltresi } : undefined,
     }),
-    // KPI: Teklif sayısı
+    // KPI: Teklif sayısı — tüm teklifler (dönem içinde oluşturulanlar)
     prisma.teklif.count({
       where: tarihFiltresi ? { createdAt: tarihFiltresi } : undefined,
     }),
-    // KPI: Tahmini gelir — para birimi bazında gruplandırılmış, sonra TL'ye çevrilir
+    // KPI: Teklif cirosu (toplam netTutar) — para birimi bazında
+    prisma.teklif.groupBy({
+      by: ["paraBirimi"],
+      _sum: { netTutar: true },
+      where: tarihFiltresi ? { createdAt: tarihFiltresi } : {},
+    }),
+    // KPI: Onay bekleyen teklif adedi (müşteriye gönderildi, karar yok)
+    prisma.teklif.count({
+      where: {
+        durum: { in: ONAY_BEKLEYEN_TEKLIF_DURUMLARI },
+        ...(tarihFiltresi ? { createdAt: tarihFiltresi } : {}),
+      },
+    }),
+    // KPI: Onay bekleyen teklif cirosu
     prisma.teklif.groupBy({
       by: ["paraBirimi"],
       _sum: { netTutar: true },
       where: {
-        durum: { in: CEVAP_BEKLEYEN_TEKLIF_DURUMLARI },
+        durum: { in: ONAY_BEKLEYEN_TEKLIF_DURUMLARI },
         ...(tarihFiltresi ? { createdAt: tarihFiltresi } : {}),
       },
     }),
-    // KPI: Onaylandı ama ödeme bekliyor (KABUL & odemeAlindiTar = null)
+    // KPI: Onaylanan — ödeme bekliyor adedi (KABUL & odemeAlindiTar = null)
+    prisma.teklif.count({
+      where: {
+        durum: "KABUL",
+        odemeAlindiTar: null,
+        ...(tarihFiltresi ? { kabulTar: tarihFiltresi } : {}),
+      },
+    }),
+    // KPI: Onaylanan — ödeme bekliyor cirosu
     prisma.teklif.groupBy({
       by: ["paraBirimi"],
       _sum: { netTutar: true },
@@ -111,7 +136,15 @@ export default async function GenelDurumPage({
         ...(tarihFiltresi ? { kabulTar: tarihFiltresi } : {}),
       },
     }),
-    // KPI: Tahsil edilen — ödeme alınmış teklifler (kabul + para alındı)
+    // KPI: Onaylanan — ödemesi gelen adedi (KABUL & para alındı)
+    prisma.teklif.count({
+      where: {
+        durum: "KABUL",
+        odemeAlindiTar: { not: null },
+        ...(tarihFiltresi ? { odemeAlindiTar: tarihFiltresi } : {}),
+      },
+    }),
+    // KPI: Onaylanan — ödemesi gelen cirosu
     prisma.teklif.groupBy({
       by: ["paraBirimi"],
       _sum: { netTutar: true },
@@ -121,7 +154,7 @@ export default async function GenelDurumPage({
         ...(tarihFiltresi ? { odemeAlindiTar: tarihFiltresi } : {}),
       },
     }),
-    // KPI: Aktif operasyon sayısı
+    // KPI: Aktif operasyon sayısı (anlık — tarih filtresi yok)
     prisma.operasyon.count({
       where: { durum: { in: AKTIF_OPERASYON_DURUMLARI } },
     }),
@@ -162,7 +195,7 @@ export default async function GenelDurumPage({
     }),
     // Cevap bekleyen teklifler
     prisma.teklif.findMany({
-      where: { durum: { in: CEVAP_BEKLEYEN_TEKLIF_DURUMLARI } },
+      where: { durum: { in: ONAY_BEKLEYEN_TEKLIF_DURUMLARI } },
       orderBy: { gonderilmeTar: "desc" },
       take: 5,
       select: {
@@ -247,16 +280,17 @@ export default async function GenelDurumPage({
     guncelKurlar(),
   ]);
 
-  const tahminiGelir = gruplariTlyeTopla(tahminiGelirGruplar, kurlar);
-  const onaylandiOdemeBekliyor = gruplariTlyeTopla(
-    onaylandiOdemeBekliyorGruplar,
-    kurlar,
-  );
-  const tahsilEdilen = gruplariTlyeTopla(tahsilEdilenGruplar, kurlar);
+  const teklifCiro = gruplariTlyeTopla(teklifCiroGruplar, kurlar);
+  const onayBekleyenCiro = gruplariTlyeTopla(onayBekleyenGruplar, kurlar);
+  const odemeBekleyenCiro = gruplariTlyeTopla(odemeBekleyenGruplar, kurlar);
+  const odemesiGelenCiro = gruplariTlyeTopla(odemesiGelenGruplar, kurlar);
+
+  const donemEtiketi = ARALIK_ETIKET[aktifAralik];
 
   type Kpi = {
     baslik: string;
     deger: string;
+    altDeger?: string;
     aciklama: string;
     icon: React.ComponentType<{ className?: string }>;
     href?: string;
@@ -267,40 +301,41 @@ export default async function GenelDurumPage({
     {
       baslik: "Görüşme",
       deger: gorusmeSayisi.toLocaleString("tr-TR"),
-      aciklama: ARALIK_ETIKET[aktifAralik],
+      aciklama: donemEtiketi,
       icon: MessageSquare,
       href: "/gorusmeler",
     },
     {
       baslik: "Teklif",
       deger: teklifSayisi.toLocaleString("tr-TR"),
-      aciklama: ARALIK_ETIKET[aktifAralik],
+      altDeger: trTutar(teklifCiro),
+      aciklama: donemEtiketi,
       icon: FileText,
       href: "/teklifler",
     },
     {
-      baslik: "Tahmini gelir",
-      deger: trTutar(tahminiGelir),
-      aciklama: "Cevap bekleyen teklifler",
+      baslik: "Onay Bekleyen Teklifler",
+      deger: onayBekleyenSayisi.toLocaleString("tr-TR"),
+      altDeger: trTutar(onayBekleyenCiro),
+      aciklama: donemEtiketi,
       icon: TrendingUp,
       href: "/teklifler?grup=BEKLIYOR",
       accent: "text-sky-600 dark:text-sky-400",
     },
     {
-      baslik: "Onaylandı · ödeme bekliyor",
-      deger: trTutar(onaylandiOdemeBekliyor),
-      aciklama: "Gelmesi yakın muhtemel para",
+      baslik: "Onaylanan · Ödeme Bekliyor",
+      deger: odemeBekleyenSayisi.toLocaleString("tr-TR"),
+      altDeger: trTutar(odemeBekleyenCiro),
+      aciklama: donemEtiketi,
       icon: CircleCheck,
       href: "/teklifler?grup=ONAYLANDI",
       accent: "text-amber-600 dark:text-amber-400",
     },
     {
-      baslik: "Tahsil edilen",
-      deger: trTutar(tahsilEdilen),
-      aciklama:
-        aktifAralik === "TUMU"
-          ? "Para alınmış tüm teklifler"
-          : `${ARALIK_ETIKET[aktifAralik]} tahsilat`,
+      baslik: "Onaylanan · Ödemesi Gelen",
+      deger: odemesiGelenSayisi.toLocaleString("tr-TR"),
+      altDeger: trTutar(odemesiGelenCiro),
+      aciklama: donemEtiketi,
       icon: Wallet,
       href: "/teklifler?grup=PARA_ALINDI",
       accent: "text-emerald-600 dark:text-emerald-400",
@@ -310,7 +345,7 @@ export default async function GenelDurumPage({
       deger: aktifOperasyonSayisi.toLocaleString("tr-TR"),
       aciklama: askidakiSayisi > 0 ? `${askidakiSayisi} askıda` : "Devam eden işler",
       icon: ClipboardList,
-      href: "/operasyonlar",
+      href: "/operasyonlar?durum=aktif&aralik=TUMU",
       accent: askidakiSayisi > 0 ? "text-amber-600 dark:text-amber-400" : undefined,
     },
     {
@@ -398,6 +433,13 @@ export default async function GenelDurumPage({
                     <CardTitle className={`text-2xl ${k.accent ?? ""}`}>
                       {k.deger}
                     </CardTitle>
+                    {k.altDeger && (
+                      <p
+                        className={`text-sm font-medium tabular-nums ${k.accent ?? "text-foreground/80"}`}
+                      >
+                        {k.altDeger}
+                      </p>
+                    )}
                   </CardHeader>
                   <CardContent>
                     <p className="text-xs text-muted-foreground">{k.aciklama}</p>

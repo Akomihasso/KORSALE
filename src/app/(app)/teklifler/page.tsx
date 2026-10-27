@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FileText, Plus } from "lucide-react";
-import type { BelgeDurum, BelgeTipi, Prisma } from "@prisma/client";
+import type { BelgeTipi, Prisma } from "@prisma/client";
 
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
@@ -61,10 +61,12 @@ type SearchParams = Promise<{
 
 // Server tarafında where filtresine çevrilebilen, durum + odemeAlindiTar
 // kombinasyonu kullanan grup tanımları.
+// Not: BEKLIYOR = "Onay bekleyen" (müşteriye gönderilmiş, karar yok). TASLAK dahil değil;
+// taslaklar yalnızca "Tümü" sekmesinde görünür.
 function grupWhere(grup: DurumGrubu | undefined): Prisma.TeklifWhereInput {
   switch (grup) {
     case "BEKLIYOR":
-      return { durum: { in: ["TASLAK", "GONDERILDI", "BEKLEMEDE"] } };
+      return { durum: { in: ["GONDERILDI", "BEKLEMEDE"] } };
     case "ONAY_BEKLIYOR_INDIRIM":
       return { durum: "ONAY_BEKLIYOR" };
     case "ONAYLANDI":
@@ -81,12 +83,29 @@ function grupWhere(grup: DurumGrubu | undefined): Prisma.TeklifWhereInput {
   }
 }
 
+// Her grubun kendi tarih kolonu — dashboard KPI'larıyla birebir eşleşsin diye.
+// ONAYLANDI → kabulTar, PARA_ALINDI → odemeAlindiTar, diğerleri → createdAt.
+function tarihSartGrupBazli(
+  grup: DurumGrubu | undefined,
+  baslangic: Date | null,
+): Prisma.TeklifWhereInput {
+  if (!baslangic) return {};
+  switch (grup) {
+    case "ONAYLANDI":
+      return { kabulTar: { gte: baslangic } };
+    case "PARA_ALINDI":
+      return { odemeAlindiTar: { gte: baslangic } };
+    default:
+      return { createdAt: { gte: baslangic } };
+  }
+}
+
 const GRUP_ETIKET: Record<DurumGrubu, string> = {
   TUMU: "Tümü",
-  BEKLIYOR: "Teklif bekliyor",
+  BEKLIYOR: "Onay bekleyen",
   ONAY_BEKLIYOR_INDIRIM: "İndirim onayı",
-  ONAYLANDI: "Onaylandı · ödeme bekliyor",
-  PARA_ALINDI: "Para alındı · operasyonda",
+  ONAYLANDI: "Onaylanan · Ödeme bekliyor",
+  PARA_ALINDI: "Onaylanan · Ödemesi gelen",
   REDDEDILDI: "Reddedildi",
   IPTAL: "İptal",
 };
@@ -117,7 +136,7 @@ export default async function TekliflerPage({
   const where: Prisma.TeklifWhereInput = {
     ...grupWhere(aktifGrup),
     ...(tip ? { belgeTipi: tip } : {}),
-    ...(tarihBaslangic ? { createdAt: { gte: tarihBaslangic } } : {}),
+    ...tarihSartGrupBazli(aktifGrup, tarihBaslangic),
     ...(q
       ? {
           OR: [
@@ -129,7 +148,8 @@ export default async function TekliflerPage({
       : {}),
   };
 
-  const tarihSart = tarihBaslangic ? { createdAt: { gte: tarihBaslangic } } : {};
+  // "Tümü" sayımı için varsayılan tarih kolonu createdAt.
+  const tumSart = tarihBaslangic ? { createdAt: { gte: tarihBaslangic } } : {};
 
   const [
     teklifler,
@@ -155,15 +175,31 @@ export default async function TekliflerPage({
       },
     }),
     prisma.teklif.count({ where }),
-    prisma.teklif.count({ where: { ...grupWhere("BEKLIYOR"), ...tarihSart } }),
     prisma.teklif.count({
-      where: { ...grupWhere("ONAY_BEKLIYOR_INDIRIM"), ...tarihSart },
+      where: { ...grupWhere("BEKLIYOR"), ...tarihSartGrupBazli("BEKLIYOR", tarihBaslangic) },
     }),
-    prisma.teklif.count({ where: { ...grupWhere("ONAYLANDI"), ...tarihSart } }),
-    prisma.teklif.count({ where: { ...grupWhere("PARA_ALINDI"), ...tarihSart } }),
-    prisma.teklif.count({ where: { ...grupWhere("REDDEDILDI"), ...tarihSart } }),
-    prisma.teklif.count({ where: { ...grupWhere("IPTAL"), ...tarihSart } }),
-    prisma.teklif.count({ where: tarihSart }),
+    prisma.teklif.count({
+      where: {
+        ...grupWhere("ONAY_BEKLIYOR_INDIRIM"),
+        ...tarihSartGrupBazli("ONAY_BEKLIYOR_INDIRIM", tarihBaslangic),
+      },
+    }),
+    prisma.teklif.count({
+      where: { ...grupWhere("ONAYLANDI"), ...tarihSartGrupBazli("ONAYLANDI", tarihBaslangic) },
+    }),
+    prisma.teklif.count({
+      where: {
+        ...grupWhere("PARA_ALINDI"),
+        ...tarihSartGrupBazli("PARA_ALINDI", tarihBaslangic),
+      },
+    }),
+    prisma.teklif.count({
+      where: { ...grupWhere("REDDEDILDI"), ...tarihSartGrupBazli("REDDEDILDI", tarihBaslangic) },
+    }),
+    prisma.teklif.count({
+      where: { ...grupWhere("IPTAL"), ...tarihSartGrupBazli("IPTAL", tarihBaslangic) },
+    }),
+    prisma.teklif.count({ where: tumSart }),
     guncelKurlar(),
   ]);
 

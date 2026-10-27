@@ -93,6 +93,7 @@ export function RouteProgress() {
 
   // Pathname değiştiğinde ilerlemeyi bitir
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAktif(false);
     if (sonElement.current) {
       sonElement.current.removeAttribute("data-mesgul");
